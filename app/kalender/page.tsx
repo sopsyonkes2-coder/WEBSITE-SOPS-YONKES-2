@@ -162,7 +162,10 @@ export default function KalenderPage() {
   dayMaxEvents={3}
   fixedWeekCount={false}
   showNonCurrentDates={true}
-  events={filteredEvents}
+  events={filteredEvents.map(event => ({
+  ...event,
+  start: event.start || new Date() // Jika start null, gunakan tanggal hari ini
+}))}
             headerToolbar={{
               left: 'prev,next today',
               center: 'title',
