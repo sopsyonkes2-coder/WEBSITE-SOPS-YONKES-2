@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Menu, X, Home, Users, FileText, Calendar, DollarSign } from 'lucide-react';
@@ -39,11 +40,17 @@ export default function Header() {
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
         {/* Logo */}
         <div className="flex items-center gap-4">
-          <div className="w-11 h-11 bg-gradient-to-br from-emerald-600 to-amber-500 rounded-xl flex items-center justify-center shadow-lg">
-            <span className="text-white font-black text-2xl">Y2</span>
+          <div className="w-12 h-12 rounded-xl overflow-hidden shadow-lg bg-slate-950/50 flex items-center justify-center">
+            <Image
+              src="/images/logo-yonkes.png"
+              alt="Logo Yonkes 2"
+              width={44}
+              height={44}
+              className="object-contain"
+            />
           </div>
           <div>
-            <div className="font-bold text-xl tracking-tight text-white">YONKES 2</div>
+            <div className="font-bold text-xl tracking-tight text-white">SOPS YONKES 2</div>
             <div className="text-[10px] text-slate-400 -mt-1">KOSTRAD • YBH</div>
           </div>
         </div>

@@ -1,32 +1,28 @@
 // lib/googleSheets.ts
-const SHEET_ID = process.env.NEXT_PUBLIC_GOOGLE_SHEET_ID!;
-const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_SHEETS_API_KEY!;
 
-export async function fetchSheetData(sheetName: string, range: string = 'A:Z') {
-  if (!API_KEY) throw new Error("API Key belum diatur");
+const SHEET_ID = process.env.NEXT_PUBLIC_GOOGLE_SHEET_ID;
+const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_SHEETS_API_KEY;
 
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${sheetName}!${range}?key=${API_KEY}`;
+export async function fetchSheetData(sheetName: string) {
+  if (!SHEET_ID || !API_KEY) {
+    console.error("Variabel lingkungan tidak ditemukan!");
+    return [];
+  }
+
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${sheetName}!A:Z?key=${API_KEY}`;
   
-  console.log(`🔍 Fetching: ${sheetName}`);
-
-  const res = await fetch(url, { 
-    cache: 'no-store',
-    next: { revalidate: 0 }
-  });
-  
-  if (!res.ok) throw new Error(`Gagal fetch ${sheetName}: ${res.statusText}`);
+  const res = await fetch(url, { cache: 'no-store' });
+  if (!res.ok) return [];
   
   const data = await res.json();
-  console.log(`✅ Sukses fetch ${sheetName} | Baris: ${data.values?.length || 0}`);
   return data.values || [];
 }
 
 export function valuesToObjects<T>(values: any[][]): T[] {
   if (!values || values.length < 2) return [];
 
-  const headers = values[0].map((h: any) => 
-    h?.toString().trim().replace(/\s+/g, ' ') || ''
-  );
+  // Membersihkan header agar tidak ada spasi tambahan yang merusak akses key
+  const headers = values[0].map((h: any) => h?.toString().trim());
 
   return values.slice(1).map((row) => {
     const obj: any = {};
