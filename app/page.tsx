@@ -153,19 +153,6 @@ export default function Home() {
 
         </div>
 
-        <motion.div
-          animate={{
-            y: [0, 10, 0],
-          }}
-          transition={{
-            duration: 2,
-            repeat: Infinity,
-          }}
-          className="absolute bottom-10 left-1/2 -translate-x-1/2 text-slate-400"
-        >
-          ↓ Scroll untuk melihat
-        </motion.div>
-
       </section>
 
       {/* STATS */}
