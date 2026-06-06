@@ -184,7 +184,7 @@ export default function Home() {
           </h2>
 
           <p className="text-slate-400 mt-3">
-            Monitoring Pelaksanaan Anggaran Yonkes 2 / YBH / 2 Kostrad
+            Monitoring Pelaksanaan Anggaran SOPS Yonkes 2 / YBH / 2 Kostrad
           </p>
 
         </div>
@@ -247,10 +247,10 @@ export default function Home() {
 
       {/* QUICK ACCESS */}
 
-      <section className="max-w-7xl mx-auto px-6 py-20">
+      <section className="max-w-7xl mx-auto px-6 py-16">
 
-        <h2 className="text-3xl font-bold mb-10 text-center">
-          Quick Access
+        <h2 className="text-4xl font-black bg-gradient-to-r from-emerald-400 to-amber-400 bg-clip-text text-transparent mb-10 text-center">
+          QUICK ACCESS
         </h2>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
@@ -306,10 +306,10 @@ export default function Home() {
 
       {/* BAGAN ALARM */}
 
-      <section className="max-w-7xl mx-auto px-6 py-12">
+      <section className="max-w-7xl mx-auto px-6 py-16">
 
-        <h2 className="text-2xl font-bold mb-4 text-center">
-          Bagan Alarm
+        <h2 className="text-4xl font-black bg-gradient-to-r from-emerald-400 to-amber-400 bg-clip-text text-transparent mb-10 text-center">
+          BAGAN ALARM
         </h2>
 
         <div className="glass rounded-3xl p-6 flex justify-center">

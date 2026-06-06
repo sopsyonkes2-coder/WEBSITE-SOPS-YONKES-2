@@ -8,6 +8,7 @@ export default function BaganAlarmModal() {
 
   return (
     <>
+      {/* Thumbnail */}
       <div
         onClick={() => setIsOpen(true)}
         className="cursor-pointer hover:opacity-80 transition-opacity"
@@ -16,25 +17,38 @@ export default function BaganAlarmModal() {
           src="/images/bagan alarm.jpg"
           alt="Bagan Alarm"
           className="max-w-full h-auto rounded-lg shadow-lg"
-          style={{ maxWidth: '900px' }}
         />
       </div>
 
+      {/* Modal Backdrop */}
       {isOpen && (
-        <div className="fixed inset-0 z-[999] bg-black/95 flex items-center justify-center p-4">
-          <button
-            onClick={() => setIsOpen(false)}
-            className="absolute top-6 right-6 z-[1000] bg-white/20 hover:bg-white/30 text-white p-2 rounded-full transition-colors"
-            aria-label="Close"
+        <div 
+          className="fixed inset-0 z-[999] bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setIsOpen(false)} // Klik background untuk tutup
+        >
+          {/* Modal Content */}
+          <div 
+            className="relative w-full max-w-4xl max-h-[90vh] bg-white rounded-lg shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()} // Supaya tidak tertutup saat klik gambar
           >
-            <X size={32} />
-          </button>
+            {/* Close Button */}
+            <button
+              onClick={() => setIsOpen(false)}
+              className="absolute top-2 right-2 z-[1000] bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors"
+              aria-label="Close"
+            >
+              <X size={20} />
+            </button>
 
-          <img
-            src="/images/bagan alarm.jpg"
-            alt="Bagan Alarm - Fullscreen"
-            className="max-w-[95vw] max-h-[95vh] object-contain rounded-lg"
-          />
+            {/* Image Container dengan Scroll jika gambar terlalu tinggi */}
+            <div className="w-full h-full overflow-auto flex items-center justify-center p-2">
+              <img
+                src="/images/bagan alarm.jpg"
+                alt="Bagan Alarm - Detail"
+                className="max-w-full h-auto object-contain"
+              />
+            </div>
+          </div>
         </div>
       )}
     </>
