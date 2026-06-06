@@ -36,11 +36,26 @@ export default function ProfilPage() {
     },
   });
 
-  const { data: kekuatan } = useQuery<DataObject>({
-    queryKey: ['organisasi'],
+  const { data: kekuatan } = useQuery<any>({
+    queryKey: ['ket-pers'],
     queryFn: async () => {
-      const values = await fetchSheetData('ORGANISASI');
-      return valuesToObjects(values)[0] || {};
+      const [values, orgValues] = await Promise.all([
+        fetchSheetData('KET PERS'),
+        fetchSheetData('ORGANISASI'),
+      ]);
+
+      if (!values || values.length < 4) return null;
+      
+      return {
+        totals: {
+          top: orgValues?.[1]?.[0],    // ORGANISASI A2
+          nyata: orgValues?.[1]?.[1],  // ORGANISASI B2
+          kurang: orgValues?.[1]?.[2], // ORGANISASI C2
+        },
+        PA: { top: values[2]?.[1], nyata: values[2]?.[2], kurang: values[2]?.[3] },
+        BA: { top: values[1]?.[1], nyata: values[1]?.[2], kurang: values[1]?.[3] },
+        TA: { top: values[3]?.[1], nyata: values[3]?.[2], kurang: values[3]?.[3] },
+      };
     },
   });
 
@@ -111,11 +126,72 @@ export default function ProfilPage() {
 
         <div className="glass rounded-3xl p-8 mb-12">
           <h2 className="text-3xl font-bold text-center mb-8"><UserCheck className="inline mr-3 text-emerald-400" /> KEKUATAN PERSONEL</h2>
-          <div className="grid md:grid-cols-3 gap-6">
-            <div className="glass rounded-2xl p-6 text-center"><div className="text-5xl font-black">{kekuatan?.TOP || 0}</div><div className="text-slate-400 mt-2">TOP</div></div>
-            <div className="glass rounded-2xl p-6 text-center"><div className="text-5xl font-black text-emerald-400">{kekuatan?.Nyata || 0}</div><div className="text-slate-400 mt-2">NYATA</div></div>
-            <div className="glass rounded-2xl p-6 text-center"><div className="text-5xl font-black text-amber-400">{kekuatan?.Kurang || 0}</div><div className="text-slate-400 mt-2">KURANG</div></div>
+          
+          <div className="grid md:grid-cols-3 gap-8">
+            {/* KOLOM TOP */}
+            <div className="flex flex-col gap-4">
+              <div className="text-center border-b border-slate-700 pb-4">
+                <div className="text-4xl font-black text-white">{kekuatan?.totals?.top || 0}</div>
+                <div className="text-xs font-bold text-slate-400 tracking-[0.2em] uppercase mt-1">TOP</div>
+              </div>
+              <div className="glass bg-white/5 rounded-2xl p-4 text-center">
+                <div className="text-3xl font-black text-white">{kekuatan?.PA?.top || 0}</div>
+                <div className="text-[10px] text-slate-500 uppercase mt-1">Perwira</div>
+              </div>
+              <div className="glass bg-white/5 rounded-2xl p-4 text-center">
+                <div className="text-3xl font-black text-white">{kekuatan?.BA?.top || 0}</div>
+                <div className="text-[10px] text-slate-500 uppercase mt-1">Bintara</div>
+              </div>
+              <div className="glass bg-white/5 rounded-2xl p-4 text-center">
+                <div className="text-3xl font-black text-white">{kekuatan?.TA?.top || 0}</div>
+                <div className="text-[10px] text-slate-500 uppercase mt-1">Tamtama</div>
+              </div>
+            </div>
+
+            {/* KOLOM NYATA */}
+            <div className="flex flex-col gap-4">
+              <div className="text-center border-b border-emerald-900/50 pb-4">
+                <div className="text-4xl font-black text-emerald-400">{kekuatan?.totals?.nyata || 0}</div>
+                <div className="text-xs font-bold text-emerald-500/60 tracking-[0.2em] uppercase mt-1">NYATA</div>
+              </div>
+              <div className="glass bg-emerald-500/5 border-emerald-500/20 rounded-2xl p-4 text-center">
+                <div className="text-3xl font-black text-emerald-400">{kekuatan?.PA?.nyata || 0}</div>
+                <div className="text-[10px] text-emerald-500/60 uppercase mt-1">Perwira</div>
+              </div>
+              <div className="glass bg-emerald-500/5 border-emerald-500/20 rounded-2xl p-4 text-center">
+                <div className="text-3xl font-black text-emerald-400">{kekuatan?.BA?.nyata || 0}</div>
+                <div className="text-[10px] text-emerald-500/60 uppercase mt-1">Bintara</div>
+              </div>
+              <div className="glass bg-emerald-500/5 border-emerald-500/20 rounded-2xl p-4 text-center">
+                <div className="text-3xl font-black text-emerald-400">{kekuatan?.TA?.nyata || 0}</div>
+                <div className="text-[10px] text-emerald-500/60 uppercase mt-1">Tamtama</div>
+              </div>
+            </div>
+
+            {/* KOLOM KURANG */}
+            <div className="flex flex-col gap-4">
+              <div className="text-center border-b border-amber-900/50 pb-4">
+                <div className="text-4xl font-black text-amber-400">{kekuatan?.totals?.kurang || 0}</div>
+                <div className="text-xs font-bold text-amber-500/60 tracking-[0.2em] uppercase mt-1">KURANG</div>
+              </div>
+              <div className="glass bg-amber-500/5 border-amber-500/20 rounded-2xl p-4 text-center">
+                <div className="text-3xl font-black text-amber-400">{kekuatan?.PA?.kurang || 0}</div>
+                <div className="text-[10px] text-amber-500/60 uppercase mt-1">Perwira</div>
+              </div>
+              <div className="glass bg-amber-500/5 border-amber-500/20 rounded-2xl p-4 text-center">
+                <div className="text-3xl font-black text-amber-400">{kekuatan?.BA?.kurang || 0}</div>
+                <div className="text-[10px] text-amber-500/60 uppercase mt-1">Bintara</div>
+              </div>
+              <div className="glass bg-amber-500/5 border-amber-500/20 rounded-2xl p-4 text-center">
+                <div className="text-3xl font-black text-amber-400">{kekuatan?.TA?.kurang || 0}</div>
+                <div className="text-[10px] text-amber-500/60 uppercase mt-1">Tamtama</div>
+              </div>
+            </div>
           </div>
+
+          <p className="text-center text-slate-500 text-xs mt-8 italic">
+            * Data bersumber dari tabel ORGANISASI (Total) & KET PERS (Detail PA, BA, TA)
+          </p>
         </div>
 
         <div className="glass rounded-3xl p-8">
