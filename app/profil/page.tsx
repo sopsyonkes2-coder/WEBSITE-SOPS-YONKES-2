@@ -74,29 +74,29 @@ export default function ProfilPage() {
         <div className="grid lg:grid-cols-3 gap-8 mb-8">
           <div className="glass rounded-3xl p-8">
             <Target className="w-12 h-12 mx-auto mb-5 text-emerald-400" />
-            <h2 className="text-3xl font-bold text-center mb-5">Tugas Pokok</h2>
+            <h2 className="text-3xl font-bold text-center mb-5">TUGAS POKOK</h2>
             <p className="text-center text-slate-300 leading-relaxed">{profil?.['Tugas Pokok']}</p>
           </div>
           <div className="glass rounded-3xl p-8">
             <Award className="w-12 h-12 mx-auto mb-5 text-amber-400" />
-            <h2 className="text-3xl font-bold text-center mb-5">Visi</h2>
+            <h2 className="text-3xl font-bold text-center mb-5">VISI</h2>
             <p className="text-center text-slate-300">{profil?.Visi}</p>
           </div>
           <div className="glass rounded-3xl p-8">
             <Users className="w-12 h-12 mx-auto mb-5 text-emerald-400" />
-            <h2 className="text-3xl font-bold text-center mb-5">Misi</h2>
+            <h2 className="text-3xl font-bold text-center mb-5">MISI</h2>
             <p className="text-center text-slate-300 whitespace-pre-line">{profil?.Misi}</p>
           </div>
         </div>
 
         <div className="glass rounded-3xl p-10 text-center mb-12 border-l-4 border-amber-500">
-          <h2 className="text-3xl font-bold mb-6">Sasanti</h2>
+          <h2 className="text-3xl font-bold mb-6">SASANTI</h2>
           <p className="text-3xl md:text-4xl italic text-amber-400 font-semibold">"{profil?.Sasanti}"</p>
         </div>
 
         <div className="glass rounded-3xl p-8 mb-12">
           <h2 className="text-3xl font-bold text-center mb-8 flex justify-center items-center gap-3">
-            <Building2 className="text-emerald-400" /> Struktur Organisasi
+            <Building2 className="text-emerald-400" /> STRUKTUR ORGANISASI
           </h2>
           <Image
             src="/images/struktur-organisasi.png"
@@ -110,7 +110,7 @@ export default function ProfilPage() {
         </div>
 
         <div className="glass rounded-3xl p-8 mb-12">
-          <h2 className="text-3xl font-bold text-center mb-8"><UserCheck className="inline mr-3 text-emerald-400" /> Kekuatan Personel</h2>
+          <h2 className="text-3xl font-bold text-center mb-8"><UserCheck className="inline mr-3 text-emerald-400" /> KEKUATAN PERSONEL</h2>
           <div className="grid md:grid-cols-3 gap-6">
             <div className="glass rounded-2xl p-6 text-center"><div className="text-5xl font-black">{kekuatan?.TOP || 0}</div><div className="text-slate-400 mt-2">TOP</div></div>
             <div className="glass rounded-2xl p-6 text-center"><div className="text-5xl font-black text-emerald-400">{kekuatan?.Nyata || 0}</div><div className="text-slate-400 mt-2">NYATA</div></div>
@@ -119,7 +119,7 @@ export default function ProfilPage() {
         </div>
 
         <div className="glass rounded-3xl p-8">
-          <h2 className="text-3xl font-bold text-center mb-10">Data Pejabat Satuan</h2>
+          <h2 className="text-3xl font-bold text-center mb-10">DATA PEJABAT SATUAN</h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
             {Object.entries(pejabatRaw || {}).map(([jabatan, nama], index) => {
               const keyMatch = Object.keys(fotoPejabat).find(k => jabatan.includes(k) || k.includes(jabatan));
