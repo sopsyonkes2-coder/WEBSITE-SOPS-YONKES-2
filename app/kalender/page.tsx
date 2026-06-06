@@ -139,11 +139,11 @@ export default function KalenderPage() {
       <div className="glass rounded-3xl p-8">
         <div className="flex items-center gap-3 mb-8">
           <CalendarDays className="text-emerald-400" />
-          <h2 className="text-3xl font-bold">KEGIATAN 14 HARI KE DEPAN</h2>
+          <h2 className="text-3xl font-bold">KEGIATAN KE DEPAN</h2>
         </div>
 
         {upcomingEvents.length === 0 ? (
-          <div className="text-slate-400 text-center py-10">Tidak ada agenda dalam 14 hari ke depan.</div>
+          <div className="text-slate-400 text-center py-10">Tidak ada agenda ke depan.</div>
         ) : (
           <div className="grid gap-4">
             {upcomingEvents.map((event: any, index: number) => (
