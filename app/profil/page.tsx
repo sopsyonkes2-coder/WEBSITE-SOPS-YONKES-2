@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { useQuery } from '@tanstack/react-query';
-import { Users, Target, Award, UserCheck, Building2 } from 'lucide-react';
+import { Users, Target, Award, UserCheck, Building2, History } from 'lucide-react';
 import { fetchSheetData, valuesToObjects } from '@/lib/googleSheets';
 
 interface DataObject {
@@ -36,6 +36,22 @@ export default function ProfilPage() {
     },
   });
 
+  const { data: sejarahData } = useQuery({
+    queryKey: ['sejarah-satuan'],
+    queryFn: async () => {
+      const values = await fetchSheetData('SEJARAH SATUAN');
+      if (!values || values.length < 2) return { dasar: [], ringkasan: [], pejabatHistory: [] };
+      
+      const objects = valuesToObjects<any>(values);
+      
+      return {
+        dasar: objects.map(o => o['Dasar Pembentukan']).filter(Boolean),
+        ringkasan: objects.map(o => o['Isi Sejarah']).filter(Boolean),
+        pejabatHistory: objects.slice(1).filter(o => o['Pejabat Danyonkes']) 
+      };
+    },
+  });
+
   const { data: kekuatan } = useQuery<any>({
     queryKey: ['ket-pers'],
     queryFn: async () => {
@@ -44,17 +60,17 @@ export default function ProfilPage() {
         fetchSheetData('ORGANISASI'),
       ]);
 
-      if (!values || values.length < 4) return null;
+      if (!values || values.length < 2) return null;
       
       return {
         totals: {
-          top: orgValues?.[1]?.[0],    // ORGANISASI A2
-          nyata: orgValues?.[1]?.[1],  // ORGANISASI B2
-          kurang: orgValues?.[1]?.[2], // ORGANISASI C2
+          top: orgValues?.[1]?.[0] || 0,    // ORGANISASI A2
+          nyata: orgValues?.[1]?.[1] || 0,  // ORGANISASI B2
+          kurang: orgValues?.[1]?.[2] || 0, // ORGANISASI C2
         },
-        PA: { top: values[2]?.[1], nyata: values[2]?.[2], kurang: values[2]?.[3] },
-        BA: { top: values[1]?.[1], nyata: values[1]?.[2], kurang: values[1]?.[3] },
-        TA: { top: values[3]?.[1], nyata: values[3]?.[2], kurang: values[3]?.[3] },
+        PA: { top: values[1]?.[1] || 0, nyata: values[1]?.[2] || 0, kurang: values[1]?.[3] || 0 }, // KET PERS Row 2 (A2)
+        BA: { top: values[2]?.[1] || 0, nyata: values[2]?.[2] || 0, kurang: values[2]?.[3] || 0 }, // KET PERS Row 3 (A3)
+        TA: { top: values[3]?.[1] || 0, nyata: values[3]?.[2] || 0, kurang: values[3]?.[3] || 0 }, // KET PERS Row 4 (A4)
       };
     },
   });
@@ -107,6 +123,55 @@ export default function ProfilPage() {
         <div className="glass rounded-3xl p-10 text-center mb-12 border-l-4 border-amber-500">
           <h2 className="text-3xl font-bold mb-6">SASANTI</h2>
           <p className="text-3xl md:text-4xl italic text-amber-400 font-semibold">"{profil?.Sasanti}"</p>
+        </div>
+
+        {/* SEJARAH SATUAN */}
+        <div className="glass rounded-3xl p-8 mb-12">
+          <h2 className="text-3xl font-bold text-center mb-10 flex justify-center items-center gap-3">
+            <History className="text-emerald-400" /> SEJARAH SATUAN
+          </h2>
+          <div className="grid lg:grid-cols-5 gap-12 items-start">
+            {/* Kolom Teks (Kiri) */}
+            <div className="lg:col-span-3 space-y-8">
+              <div>
+                <h3 className="text-xl font-bold text-emerald-400 mb-4 uppercase tracking-wider border-l-4 border-emerald-500 pl-4">Dasar Pembentukan</h3>
+                <ul className="space-y-4">
+                  {sejarahData?.dasar.map((text: string, i: number) => (
+                    <li key={i} className="flex gap-4 items-start text-slate-300 leading-relaxed text-justify text-sm md:text-base">
+                      <div className="w-2 h-2 rounded-full bg-emerald-500 mt-2 shrink-0 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+                      <span className="whitespace-pre-line flex-1">{text}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-emerald-400 mb-4 uppercase tracking-wider border-l-4 border-emerald-500 pl-4">Ringkasan Sejarah</h3>
+                <ul className="space-y-4">
+                  {sejarahData?.ringkasan.map((text: string, i: number) => (
+                    <li key={i} className="flex gap-4 items-start text-slate-300 leading-relaxed text-justify text-sm md:text-base">
+                      <div className="w-2 h-2 rounded-full bg-emerald-500 mt-2 shrink-0 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+                      <span className="whitespace-pre-line flex-1">{text}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            {/* Kolom Foto (Kanan) */}
+            <div className="lg:col-span-2">
+              <div className="sticky top-24">
+                <div className="relative aspect-[3/4] w-full rounded-2xl overflow-hidden border border-white/10 shadow-2xl ring-1 ring-white/20">
+                  <Image
+                    src="/images/sejarah-satuan.png"
+                    alt="Foto Sejarah Yonkes 2"
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+                
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="glass rounded-3xl p-8 mb-12">
@@ -189,9 +254,6 @@ export default function ProfilPage() {
             </div>
           </div>
 
-          <p className="text-center text-slate-500 text-xs mt-8 italic">
-            * Data bersumber dari tabel ORGANISASI (Total) & KET PERS (Detail PA, BA, TA)
-          </p>
         </div>
 
         <div className="glass rounded-3xl p-8">
@@ -221,6 +283,35 @@ export default function ProfilPage() {
                 </motion.div>
               );
             })}
+          </div>
+        </div>
+
+        {/* DAFTAR MANTAN PEJABAT DANYONKES 2 */}
+        <div className="glass rounded-3xl p-8 mt-12">
+          <h2 className="text-3xl font-bold text-center mb-10 flex justify-center items-center gap-3">
+            <Award className="text-amber-400" /> DAFTAR PEJABAT DANYONKES 2 DARI MASA KE MASA
+          </h2>
+          <div className="glass bg-slate-900/40 rounded-2xl overflow-hidden border border-white/5">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-white/5 border-b border-slate-700">
+                    <th className="px-6 py-4 text-emerald-400 font-bold text-sm uppercase tracking-wider">No</th>
+                    <th className="px-6 py-4 text-emerald-400 font-bold text-sm uppercase tracking-wider">Nama Pejabat</th>
+                    <th className="px-6 py-4 text-emerald-400 font-bold text-sm uppercase tracking-wider text-right">Masa Jabatan</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800">
+                  {sejarahData?.pejabatHistory?.map((item: any, idx: number) => (
+                    <tr key={idx} className="hover:bg-white/5 transition-colors group">
+                      <td className="px-6 py-4 text-slate-500 text-sm font-mono group-hover:text-emerald-400 transition-colors">{idx + 1}</td>
+                      <td className="px-6 py-4 text-white font-bold text-sm">{item['Pejabat Danyonkes']}</td>
+                      <td className="px-6 py-4 text-slate-400 text-sm text-right italic font-medium">{item['Masa Jabatan']}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
