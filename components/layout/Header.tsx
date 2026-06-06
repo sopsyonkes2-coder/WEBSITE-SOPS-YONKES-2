@@ -39,7 +39,7 @@ export default function Header() {
     >
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
         {/* Logo */}
-        <div className="flex items-center gap-4">
+        <Link href="/" className="flex items-center gap-4 hover:opacity-80 transition-opacity">
           <div className="w-12 h-12 rounded-xl overflow-hidden shadow-lg bg-slate-950/50 flex items-center justify-center">
             <Image
               src="/images/logo-yonkes.png"
@@ -53,7 +53,7 @@ export default function Header() {
             <div className="font-bold text-xl tracking-tight text-white">SOPS YONKES 2</div>
             <div className="text-[10px] text-slate-400 -mt-1">KOSTRAD • YBH</div>
           </div>
-        </div>
+        </Link>
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-8 text-sm font-medium">
