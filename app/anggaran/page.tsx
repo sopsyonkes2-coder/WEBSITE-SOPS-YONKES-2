@@ -70,6 +70,9 @@ export default function AnggaranPage() {
   const [tahun, setTahun] =
     useState('Semua');
 
+  const currentYear = new Date().getFullYear().toString();
+  const previousYear = (new Date().getFullYear() - 1).toString();
+
   const [semester, setSemester] =
     useState('Semua');
 
@@ -477,39 +480,30 @@ const pieData = bidang
   /* ====================================
       TABEL DETAIL
   ==================================== */
-
   const detailTable =
-    filteredDetail.map(
-      (item: any) => {
+    filteredDetail
+      .filter((item: any) => {
+        if (tahun === 'Semua') {
+          return item.Tahun === currentYear;
+        }
 
+        return item.Tahun === tahun;
+      })
+      .map((item: any) => {
         const total =
           cleanCurrency(
-            item[
-              'Total Realisasi'
-            ]
+            item['Total Realisasi']
           );
 
         return {
-          kegiatan:
-            item.Kegiatan,
-
-          bidang:
-            item.Bidang,
-
-          periode:
-            item.Periode,
-
-          bulan:
-            item.Bulan,
-
-          tahun:
-            item.Tahun,
-
-          realisasi:
-            total,
+          kegiatan: item.Kegiatan,
+          bidang: item.Bidang,
+          periode: item.Periode,
+          bulan: item.Bulan,
+          tahun: item.Tahun,
+          realisasi: total,
         };
-      }
-    );
+      });
 
   /* ====================================
       CARD SUMMARY TAMBAHAN
@@ -658,7 +652,7 @@ return (
 
       <div className="glass rounded-3xl p-6 mb-10">
 
-        <h2 className="text-xl font-bold mb-4">
+        <h2 className="text-xl font-bold mb-4 text-center">
           Filter Data
         </h2>
 
@@ -673,16 +667,17 @@ return (
               )
             }
           >
-            {tahunList.map(
-              (item) => (
+            <option value="Semua">Tahun</option>
+            {tahunList
+              .filter((item) => item !== 'Semua')
+              .map((item) => (
                 <option
                   key={item}
                   value={item}
                 >
                   {item}
                 </option>
-              )
-            )}
+              ))}
           </select>
 
           <select
@@ -694,17 +689,9 @@ return (
               )
             }
           >
-            <option value="Semua">
-              Semua Semester
-            </option>
-
-            <option value="Semester I">
-              Semester I
-            </option>
-
-            <option value="Semester II">
-              Semester II
-            </option>
+            <option value="Semua">Semester</option>
+            <option value="Semester I">Semester I</option>
+            <option value="Semester II">Semester II</option>
 
           </select>
 
@@ -717,25 +704,11 @@ return (
               )
             }
           >
-            <option value="Semua">
-              Semua Triwulan
-            </option>
-
-            <option value="TW I">
-              TW I
-            </option>
-
-            <option value="TW II">
-              TW II
-            </option>
-
-            <option value="TW III">
-              TW III
-            </option>
-
-            <option value="TW IV">
-              TW IV
-            </option>
+            <option value="Semua">Triwulan</option>
+            <option value="TW I">TW I</option>
+            <option value="TW II">TW II</option>
+            <option value="TW III">TW III</option>
+            <option value="TW IV">TW IV</option>
 
           </select>
 
@@ -748,16 +721,17 @@ return (
               )
             }
           >
-            {bulanList.map(
-              (item) => (
+            <option value="Semua">Bulan</option>
+            {bulanList
+              .filter((item) => item !== 'Semua')
+              .map((item) => (
                 <option
                   key={item}
                   value={item}
                 >
                   {item}
                 </option>
-              )
-            )}
+              ))}
           </select>
 
           <select
@@ -771,16 +745,14 @@ return (
               )
             }
           >
-            {bidangList.map(
-              (item) => (
-                <option
-                  key={item}
-                  value={item}
-                >
+            <option value="Semua">Bidang</option>
+            {bidangList
+              .filter((item) => item !== 'Semua')
+              .map((item) => (
+                <option key={item} value={item}>
                   {item}
                 </option>
-              )
-            )}
+              ))}
           </select>
 
           <select
@@ -794,16 +766,14 @@ return (
               )
             }
           >
-            {kegiatanList.map(
-              (item) => (
-                <option
-                  key={item}
-                  value={item}
-                >
+            <option value="Semua">Kegiatan</option>
+            {kegiatanList
+              .filter((item) => item !== 'Semua')
+              .map((item) => (
+                <option key={item} value={item}>
                   {item}
                 </option>
-              )
-            )}
+              ))}
           </select>
 
         </div>
@@ -980,6 +950,9 @@ return (
 
             <BarChart
               data={barData}
+              margin={{ top: 10, right: 20, left: 40, bottom: 100 }}
+              barCategoryGap="20%"
+              barGap={1}
             >
 
               <CartesianGrid strokeDasharray="3 3" />
@@ -990,6 +963,7 @@ return (
                 textAnchor="end"
                 interval={0}
                 height={100}
+                tick={{ fontSize: 11 }}
               />
 
               <YAxis />
@@ -1040,15 +1014,17 @@ return (
 
           <LineChart
             data={bulananData}
+            margin={{ top: 24, right: 20, left: 80, bottom: 40 }}
           >
 
             <CartesianGrid strokeDasharray="3 3" />
 
             <XAxis
               dataKey="bulan"
+              tick={{ fontSize: 12 }}
             />
 
-            <YAxis />
+            <YAxis width={80} tick={{ fontSize: 12 }} domain={[0, 'dataMax * 1.15']} />
 
             <Tooltip
               formatter={(
@@ -1069,6 +1045,7 @@ return (
               dataKey="realisasi"
               stroke="#3b82f6"
               strokeWidth={3}
+              dot={{ r: 3 }}
             />
 
           </LineChart>
@@ -1091,15 +1068,17 @@ return (
 
           <BarChart
             data={triwulanData}
+            margin={{ top: 24, right: 20, left: 80, bottom: 40 }}
           >
 
             <CartesianGrid strokeDasharray="3 3" />
 
             <XAxis
               dataKey="triwulan"
+              tick={{ fontSize: 12 }}
             />
 
-            <YAxis />
+            <YAxis width={80} tick={{ fontSize: 12 }} />
 
             <Tooltip
               formatter={(
@@ -1145,15 +1124,17 @@ return (
 
           <BarChart
             data={semesterData}
+            margin={{ top: 24, right: 20, left: 80, bottom: 40 }}
           >
 
             <CartesianGrid strokeDasharray="3 3" />
 
             <XAxis
               dataKey="semester"
+              tick={{ fontSize: 12 }}
             />
 
-            <YAxis />
+            <YAxis width={80} tick={{ fontSize: 12 }} />
 
             <Tooltip
               formatter={(
@@ -1195,9 +1176,7 @@ return (
           </h2>
 
           <div className="text-sm text-slate-400">
-            Total Data :
-            {' '}
-            {detailTable.length}
+            Total Data : {detailTable.length}
           </div>
 
         </div>
@@ -1210,29 +1189,17 @@ return (
 
               <tr className="border-b border-slate-700 bg-slate-900/50">
 
-                <th className="p-3 text-left">
-                  Kegiatan
-                </th>
+                <th className="p-3 text-left">Kegiatan</th>
 
-                <th className="p-3 text-left">
-                  Bidang
-                </th>
+                <th className="p-3 text-left">Bidang</th>
 
-                <th className="p-3 text-left">
-                  Periode
-                </th>
+                <th className="p-3 text-left">Periode</th>
 
-                <th className="p-3 text-left">
-                  Bulan
-                </th>
+                <th className="p-3 text-left">Bulan</th>
 
-                <th className="p-3 text-left">
-                  Tahun
-                </th>
+                <th className="p-3 text-left">Tahun</th>
 
-                <th className="p-3 text-right">
-                  Realisasi
-                </th>
+                <th className="p-3 text-right">Realisasi</th>
 
               </tr>
 
@@ -1240,67 +1207,36 @@ return (
 
             <tbody>
 
-              {detailTable.map(
-                (
-                  item,
-                  index
-                ) => (
+              {detailTable.map((item, index) => (
 
-                  <tr
-                    key={index}
-                    className="border-b border-slate-800 hover:bg-slate-800/40"
-                  >
+                <tr
+                  key={index}
+                  className="border-b border-slate-800 hover:bg-slate-800/40"
+                >
 
-                    <td className="p-3">
-                      {
-                        item.kegiatan
-                      }
-                    </td>
+                  <td className="p-3">{item.kegiatan}</td>
 
-                    <td className="p-3">
-                      {
-                        item.bidang
-                      }
-                    </td>
+                  <td className="p-3">{item.bidang}</td>
 
-                    <td className="p-3">
-                      {
-                        item.periode
-                      }
-                    </td>
+                  <td className="p-3">{item.periode}</td>
 
-                    <td className="p-3">
-                      {
-                        item.bulan
-                      }
-                    </td>
+                  <td className="p-3">{item.bulan}</td>
 
-                    <td className="p-3">
-                      {
-                        item.tahun
-                      }
-                    </td>
+                  <td className="p-3">{item.tahun}</td>
 
-                    <td className="p-3 text-right font-semibold text-emerald-400">
-                      {formatRupiah(
-                        item.realisasi
-                      )}
-                    </td>
+                  <td className="p-3 text-right font-semibold text-emerald-400">
+                    {formatRupiah(item.realisasi)}
+                  </td>
 
-                  </tr>
+                </tr>
 
-                )
-              )}
+              ))}
 
-              {detailTable.length ===
-                0 && (
+              {detailTable.length === 0 && (
 
                 <tr>
 
-                  <td
-                    colSpan={6}
-                    className="p-6 text-center text-slate-400"
-                  >
+                  <td colSpan={6} className="p-6 text-center text-slate-400">
 
                     Tidak ada data ditemukan
 

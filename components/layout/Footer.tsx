@@ -9,7 +9,7 @@ export default function Footer() {
           <div>
             <h3 className="text-xl font-bold text-emerald-400 mb-2">SOPS YONKES 2</h3>
             <p className="text-slate-400 text-sm">
-              Portal Staf Operasi, Latihan dan Anggaran
+              Portal Staf Operasi 
               <br />
               Yonkes 2 / YBH / 2 Kostrad
             </p>
