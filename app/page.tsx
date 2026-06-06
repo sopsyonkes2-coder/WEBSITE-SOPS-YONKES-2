@@ -11,7 +11,7 @@ import {
   Target,
   Wallet,
   BadgeDollarSign,
-  PiggyBank,
+  Coins,
 } from 'lucide-react';
 
 import { useQuery } from '@tanstack/react-query';
@@ -227,7 +227,7 @@ export default function Home() {
           <div className="glass rounded-3xl p-8 text-center">
 
             <div className="flex justify-center mb-5">
-              <PiggyBank className="w-14 h-14 text-amber-400" />
+              <Coins className="w-14 h-14 text-amber-400" />
             </div>
 
             <div className="text-slate-400 uppercase text-sm tracking-widest">
@@ -298,6 +298,27 @@ export default function Home() {
               </motion.div>
             )
           )}
+
+        </div>
+
+      </section>
+
+      {/* BAGAN ALARM */}
+
+      <section className="max-w-7xl mx-auto px-6 py-12">
+
+        <h2 className="text-2xl font-bold mb-4 text-center">
+          Bagan Alarm
+        </h2>
+
+        <div className="glass rounded-3xl p-6 flex justify-center">
+
+          <img
+            src="/images/bagan alarm.jpg"
+            alt="Bagan Alarm"
+            className="max-w-full h-auto rounded-lg shadow-lg"
+            style={{ maxWidth: '900px' }}
+          />
 
         </div>
 
