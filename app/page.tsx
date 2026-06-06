@@ -22,6 +22,7 @@ import {
 } from '@/lib/googleSheets';
 
 import StatsGrid from '@/components/dashboard/StatsGrid';
+import BaganAlarmModal from '@/components/BaganAlarmModal';
 
 function cleanCurrency(value: string) {
   if (!value) return 0;
@@ -152,6 +153,19 @@ export default function Home() {
           </motion.div>
 
         </div>
+
+        <motion.div
+          animate={{
+            y: [0, 10, 0],
+          }}
+          transition={{
+            duration: 2,
+            repeat: Infinity,
+          }}
+          className="absolute top-24 left-1/2 -translate-x-1/2 text-slate-400"
+        >
+          ↓ Scroll untuk melihat
+        </motion.div>
 
       </section>
 
@@ -300,12 +314,7 @@ export default function Home() {
 
         <div className="glass rounded-3xl p-6 flex justify-center">
 
-          <img
-            src="/images/bagan alarm.jpg"
-            alt="Bagan Alarm"
-            className="max-w-full h-auto rounded-lg shadow-lg"
-            style={{ maxWidth: '900px' }}
-          />
+          <BaganAlarmModal />
 
         </div>
 
