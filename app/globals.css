@@ -150,13 +150,13 @@
 }
 
 .fc-col-header-cell-cushion {
-  color: white !important;
+  color: rgb(0, 0, 0) !important;
   text-decoration: none !important;
   font-weight: 700;
 }
 
 .fc-daygrid-day-number {
-  color: white !important;
+  color: rgb(0, 100, 42) !important;
   text-decoration: none !important;
 }
 
