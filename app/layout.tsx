@@ -1,4 +1,4 @@
-import type { Metadata, Viewport } from 'next';
+import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import Header from '@/components/layout/Header';
@@ -8,12 +8,6 @@ import { Toaster } from 'sonner';
 import ClientProviders from '@/components/ClientProviders';
 
 const inter = Inter({ subsets: ['latin'] });
-
-export const viewport: Viewport = {
-  width: 'device-width',
-  initialScale: 1,
-  maximumScale: 1,
-};
 
 export const metadata: Metadata = {
   title: 'Portal Staf Operasi Yonkes 2/YBH/2 Kostrad',
@@ -29,15 +23,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="id" className="dark scroll-smooth">
-      <head>
-        <meta charSet="utf-8" />
-        <meta name="theme-color" content="#0f172a" />
-      </head>
-      <body className={`${inter.className} bg-slate-950 text-slate-100 antialiased w-full overflow-x-hidden`}>
+    <html lang="id" className="dark">
+      <body className={`${inter.className} bg-slate-950 text-slate-100`}>
         <ClientProviders>
           <Header />
-          <main className="w-full min-h-screen">
+          <main className="min-h-screen">
             {children}
           </main>
           <Footer />
