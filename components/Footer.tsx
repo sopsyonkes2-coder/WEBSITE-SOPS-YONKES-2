@@ -1,7 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { Phone, Mail, MapPin, ShieldCheck } from 'lucide-react';
+import { Phone, Mail, MapPin, ShieldCheck, MessageSquareWarning } from 'lucide-react';
 import { fetchSheetData } from '@/lib/googleSheets';
 
 export default function Footer() {
@@ -13,6 +14,7 @@ export default function Footer() {
       return {
         telepon: values[1]?.[0] || '-', // Cell A2
         email: values[1]?.[1] || '-',   // Cell B2
+        wa: values[1]?.[2] || '',       // Cell C2
         alamat: values[1]?.[6] || '-',  // Cell G2 (Index 6)
         mapsLink: values[1]?.[7] || '#', // Cell H2 (Index 7)
       };
@@ -22,7 +24,7 @@ export default function Footer() {
   return (
     <footer className="mt-20 border-t border-white/10 bg-slate-950/30 backdrop-blur-xl">
       <div className="max-w-7xl mx-auto px-6 py-16">
-        <div className="grid md:grid-cols-3 gap-16 mb-16">
+        <div className="grid md:grid-cols-4 gap-12 mb-16">
           {/* Identitas Satuan */}
           <div className="space-y-6">
             <div className="flex items-center gap-3">
@@ -76,6 +78,22 @@ export default function Footer() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* Layanan Cepat */}
+          <div className="space-y-6">
+            <h3 className="text-white font-bold tracking-wide uppercase text-xs opacity-50">Layanan Cepat</h3>
+            <div className="space-y-4">
+              <Link href="/Lapor" className="flex items-center gap-4 group transition-all">
+                <div className="w-10 h-10 rounded-xl bg-slate-900 border border-white/5 flex items-center justify-center group-hover:border-emerald-500/50 transition-colors">
+                  <MessageSquareWarning className="w-4 h-4 text-emerald-400" />
+                </div>
+                <div>
+                  <div className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Pengaduan</div>
+                  <div className="text-slate-200 font-medium group-hover:text-emerald-400 transition-colors">Pusat Pelaporan</div>
+                </div>
+              </Link>
             </div>
           </div>
 

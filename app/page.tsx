@@ -12,6 +12,7 @@ import {
   Wallet,
   BadgeDollarSign,
   Coins,
+  ShieldAlert,
 } from 'lucide-react';
 
 import { useQuery } from '@tanstack/react-query';
@@ -253,7 +254,7 @@ export default function Home() {
           QUICK ACCESS
         </h2>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
 
           {[
             {
@@ -275,6 +276,11 @@ export default function Home() {
               icon: Users,
               label: 'Profil',
               href: '/profil',
+            },
+            {
+              icon: ShieldAlert,
+              label: 'Lapor',
+              href: '/Lapor',
             },
           ].map(
             (item, i) => (

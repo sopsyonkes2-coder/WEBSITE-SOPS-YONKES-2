@@ -8,7 +8,7 @@ import { useState, useEffect } from 'react';
 
 import Link from 'next/link';
 
-import { Menu, X, Home, Users, FileText, Calendar, DollarSign } from 'lucide-react';
+import { Menu, X, Home, Users, FileText, Calendar, DollarSign, ShieldAlert } from 'lucide-react';
 
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -25,6 +25,8 @@ const navLinks = [
   { href: '/kalender', label: 'Kalender', icon: Calendar },
 
   { href: '/anggaran', label: 'Anggaran', icon: DollarSign },
+
+  { href: '/Lapor', label: 'Lapor', icon: ShieldAlert },
 
 ];
 
@@ -213,4 +215,3 @@ export default function Header() {
   );
 
 }
-
