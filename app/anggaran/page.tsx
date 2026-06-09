@@ -68,7 +68,7 @@ export default function AnggaranPage() {
   ==================================== */
 
   const [tahun, setTahun] =
-    useState('Semua');
+    useState(new Date().getFullYear().toString());
 
   const currentYear = new Date().getFullYear().toString();
   const previousYear = (new Date().getFullYear() - 1).toString();
@@ -193,48 +193,73 @@ const bulanList = [
     FILTER DATA DETAIL
 ==================================== */
 
-const filteredDetail = detail.filter(
-  (item: any) => {
+const filteredDetail = useMemo(() => {
+  return detail.filter(
+    (item: any) => {
 
-    const tahunMatch =
-      tahun === 'Semua' ||
-      item.Tahun === tahun;
+      const tahunMatch =
+        tahun === 'Semua' ||
+        item.Tahun === tahun;
 
-    const bidangMatch =
-      bidangFilter === 'Semua' ||
-      item.Bidang === bidangFilter;
+      const bidangMatch =
+        bidangFilter === 'Semua' ||
+        item.Bidang === bidangFilter;
 
-    const kegiatanMatch =
-      kegiatanFilter === 'Semua' ||
-      item.Kegiatan === kegiatanFilter;
+      const kegiatanMatch =
+        kegiatanFilter === 'Semua' ||
+        item.Kegiatan === kegiatanFilter;
 
-    const bulanMatch =
-      bulan === 'Semua' ||
-      item.Bulan === bulan;
+      const bulanMatch =
+        bulan === 'Semua' ||
+        item.Bulan === bulan;
 
-    const triwulanMatch =
-      triwulan === 'Semua' ||
-      item.Periode === triwulan;
+      const triwulanMatch =
+        triwulan === 'Semua' ||
+        item.Periode === triwulan;
 
-    const semesterData =
-      item.Periode === 'TW I' ||
-      item.Periode === 'TW II'
-        ? 'Semester I'
-        : 'Semester II';
+      const semesterData =
+        item.Periode === 'TW I' ||
+        item.Periode === 'TW II'
+          ? 'Semester I'
+          : 'Semester II';
 
-    const semesterMatch =
-      semester === 'Semua' ||
-      semesterData === semester;
+      const semesterMatch =
+        semester === 'Semua' ||
+        semesterData === semester;
 
-    return (
-      tahunMatch &&
-      bidangMatch &&
-      kegiatanMatch &&
-      bulanMatch &&
-      triwulanMatch &&
-      semesterMatch
-    );
-  }
+      return (
+        tahunMatch &&
+        bidangMatch &&
+        kegiatanMatch &&
+        bulanMatch &&
+        triwulanMatch &&
+        semesterMatch
+      );
+    }
+  );
+}, [detail, tahun, bidangFilter, kegiatanFilter, bulan, triwulan, semester]);
+
+/* ====================================
+    DATA FILTERED PAGU (Master Kegiatan)
+==================================== */
+
+const kegiatanFiltered = kegiatan.filter((item: any) => {
+  const bidangMatch =
+    bidangFilter === 'Semua' ? true : item.Bidang === bidangFilter;
+  const kegiatanMatch =
+    kegiatanFilter === 'Semua' ? true : item.Kegiatan === kegiatanFilter;
+  const tahunMatch = tahun === 'Semua' ? true : item.Tahun === tahun;
+
+  return bidangMatch && kegiatanMatch && tahunMatch;
+});
+
+/* ====================================
+    PAGU FILTERED
+==================================== */
+
+const totalPaguFiltered = kegiatanFiltered.reduce(
+  (acc: number, item: any) => acc + cleanCurrency(item['Total Pagu']),
+  0
 );
 
 /* ====================================
@@ -242,48 +267,17 @@ const filteredDetail = detail.filter(
 ==================================== */
 
 const totalRealisasi = useMemo(() => {
-
   return filteredDetail.reduce(
-    (
-      acc: number,
-      item: any
-    ) =>
-      acc +
-      cleanCurrency(
-        item['Total Realisasi']
-      ),
+    (acc: number, item: any) => acc + cleanCurrency(item['Total Realisasi']),
     0
   );
-
 }, [filteredDetail]);
 
-const totalPagu = useMemo(() => {
+const totalSisaFiltered = totalPaguFiltered - totalRealisasi;
 
-  return kegiatan.reduce(
-    (
-      acc: number,
-      item: any
-    ) =>
-      acc +
-      cleanCurrency(
-        item['Total Pagu']
-      ),
-    0
-  );
-
-}, [kegiatan]);
-
-const totalSisa =
-  totalPagu -
-  totalRealisasi;
-
-const persen =
-  totalPagu > 0
-    ? (
-        (totalRealisasi /
-          totalPagu) *
-        100
-      ).toFixed(2)
+const persenFiltered =
+  totalPaguFiltered > 0
+    ? ((totalRealisasi / totalPaguFiltered) * 100).toFixed(2)
     : '0';
 
 /* ====================================
@@ -480,42 +474,53 @@ const pieData = bidang
   /* ====================================
       TABEL DETAIL
   ==================================== */
-  const detailTable =
-    filteredDetail
-      .filter((item: any) => {
-        if (tahun === 'Semua') {
-          return item.Tahun === currentYear;
-        }
+  const detailTable = useMemo(() => {
+    const targetYear = tahun === 'Semua' ? currentYear : tahun;
 
-        return item.Tahun === tahun;
+    // Data yang sudah terealisasi (berdasarkan filter detail)
+    const realizedData = filteredDetail
+      .filter((item: any) => item.Tahun === targetYear)
+      .map((item: any) => ({
+        kegiatan: item.Kegiatan,
+        bidang: item.Bidang,
+        periode: item.Periode,
+        bulan: item.Bulan,
+        tahun: item.Tahun,
+        realisasi: cleanCurrency(item['Total Realisasi']),
+      }));
+
+    // Data kegiatan yang belum terealisasi di periode/filter tersebut
+    // Kita saring dari master kegiatan agar sesuai dengan konteks filter yang aktif
+    const unrealizedData = kegiatan
+      .filter((keg: any) => {
+        const matchYear = (keg.Tahun || targetYear) === targetYear;
+        const matchBidang = bidangFilter === 'Semua' || keg.Bidang === bidangFilter;
+        const matchKegiatan = kegiatanFilter === 'Semua' || keg.Kegiatan === kegiatanFilter;
+        // Cek apakah kegiatan ini sudah punya realisasi APAPUN di tahun ini (lintas periode)
+        const hasAnyRealizationInYear = detail.some((d: any) => d.Kegiatan === keg.Kegiatan && d.Tahun === targetYear);
+        
+        return matchYear && matchBidang && matchKegiatan && !hasAnyRealizationInYear;
       })
-      .map((item: any) => {
-        const total =
-          cleanCurrency(
-            item['Total Realisasi']
-          );
+      .map((item: any) => ({
+        kegiatan: item.Kegiatan,
+        bidang: item.Bidang,
+        periode: '-',
+        bulan: '-',
+        tahun: item.Tahun || targetYear,
+        realisasi: 0,
+      }));
 
-        return {
-          kegiatan: item.Kegiatan,
-          bidang: item.Bidang,
-          periode: item.Periode,
-          bulan: item.Bulan,
-          tahun: item.Tahun,
-          realisasi: total,
-        };
-      });
+    // Gabungkan dan urutkan agar yang sudah terealisasi muncul di atas
+    return [...realizedData, ...unrealizedData].sort((a, b) => b.realisasi - a.realisasi);
+  }, [filteredDetail, kegiatan, detail, tahun, currentYear, bidangFilter, kegiatanFilter]);
 
   /* ====================================
       CARD SUMMARY TAMBAHAN
   ==================================== */
 
-  const jumlahKegiatan =
-    new Set(
-      filteredDetail.map(
-        (item: any) =>
-          item.Kegiatan
-      )
-    ).size;
+  const jumlahKegiatan = useMemo(() => {
+    return filteredDetail.filter((item: any) => item.Kegiatan?.trim()).length;
+  }, [filteredDetail]);
 
   const jumlahBidang =
     new Set(
@@ -540,72 +545,6 @@ const pieData = bidang
         realisasi: 0,
       }
     );
-
-  /* ====================================
-      DATA FILTERED PAGU
-  ==================================== */
-
-  const kegiatanFiltered =
-    kegiatan.filter(
-      (item: any) => {
-
-        const bidangMatch =
-          bidangFilter ===
-          'Semua'
-            ? true
-            : item.Bidang ===
-              bidangFilter;
-
-        const kegiatanMatch =
-          kegiatanFilter ===
-          'Semua'
-            ? true
-            : item.Kegiatan ===
-              kegiatanFilter;
-
-        const tahunMatch =
-          tahun === 'Semua'
-            ? true
-            : item.Tahun ===
-              tahun;
-
-        return (
-          bidangMatch &&
-          kegiatanMatch &&
-          tahunMatch
-        );
-      }
-    );
-
-  /* ====================================
-      PAGU FILTERED
-  ==================================== */
-
-  const totalPaguFiltered =
-    kegiatanFiltered.reduce(
-      (
-        acc: number,
-        item: any
-      ) =>
-        acc +
-        cleanCurrency(
-          item['Total Pagu']
-        ),
-      0
-    );
-
-  const totalSisaFiltered =
-    totalPaguFiltered -
-    totalRealisasi;
-
-  const persenFiltered =
-    totalPaguFiltered > 0
-      ? (
-          (totalRealisasi /
-            totalPaguFiltered) *
-          100
-        ).toFixed(2)
-      : '0';
 
   /* ====================================
       EXPORT DATA
@@ -1224,7 +1163,7 @@ return (
 
                   <td className="p-3">{item.tahun}</td>
 
-                  <td className="p-3 text-right font-semibold text-emerald-400">
+                  <td className={`p-3 text-right font-semibold ${item.realisasi > 0 ? 'text-emerald-400' : 'text-slate-500'}`}>
                     {formatRupiah(item.realisasi)}
                   </td>
 

@@ -44,12 +44,16 @@ export default function StatsGrid() {
   const { data: jumlahKegiatan } =
     useQuery({
       queryKey: ['kegiatan-count'],
-      queryFn: async () =>
-        (
-          await fetchSheetData(
-            'KALENDER LATIHAN'
-          )
-        ).length - 1,
+      queryFn: async () => {
+        const detailData = await fetchSheetData('DETAIL ANGGARAN');
+        const detail = valuesToObjects<any>(detailData);
+        const currentYear = new Date().getFullYear().toString();
+
+        return detail.filter(item => 
+          item.Kegiatan?.trim() && 
+          item.Tahun?.toString().trim() === currentYear
+        ).length;
+      },
     });
 
   // ORGANISASI
@@ -89,12 +93,15 @@ export default function StatsGrid() {
       },
     });
 
+  const currentYear = new Date().getFullYear().toString();
+
   const totalPagu =
     anggaran.reduce(
       (
         acc: number,
         item: any
       ) =>
+        item.Tahun?.toString().trim() !== currentYear ? acc :
         acc +
         cleanCurrency(
           item['Total Pagu']
@@ -108,6 +115,7 @@ export default function StatsGrid() {
         acc: number,
         item: any
       ) =>
+        item.Tahun?.toString().trim() !== currentYear ? acc :
         acc +
         cleanCurrency(
           item[

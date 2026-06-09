@@ -9,6 +9,7 @@ import {
   FileText,
   Calendar,
   Target,
+  Clock,
   Wallet,
   BadgeDollarSign,
   Coins,
@@ -64,19 +65,20 @@ export default function Home() {
       },
     });
 
+  const currentYear = useMemo(() => new Date().getFullYear().toString(), []);
+
   const totalPagu = useMemo(() => {
     return anggaran.reduce(
       (
         acc: number,
         item: any
       ) =>
-        acc +
-        cleanCurrency(
-          item['Total Pagu']
-        ),
+        item.Tahun?.toString().trim() !== currentYear
+          ? acc
+          : acc + cleanCurrency(item['Total Pagu']),
       0
     );
-  }, [anggaran]);
+  }, [anggaran, currentYear]);
 
   const totalRealisasi =
     useMemo(() => {
@@ -85,15 +87,12 @@ export default function Home() {
           acc: number,
           item: any
         ) =>
-          acc +
-          cleanCurrency(
-            item[
-              'Total Realisasi'
-            ]
-          ),
+          item.Tahun?.toString().trim() !== currentYear
+            ? acc
+            : acc + cleanCurrency(item['Total Realisasi']),
         0
       );
-    }, [anggaran]);
+    }, [anggaran, currentYear]);
 
   const totalSisa =
     totalPagu - totalRealisasi;
@@ -254,7 +253,7 @@ export default function Home() {
           QUICK ACCESS
         </h2>
 
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
 
           {[
             {
@@ -266,6 +265,11 @@ export default function Home() {
               icon: Calendar,
               label: 'Kalender',
               href: '/kalender',
+            },
+            {
+              icon: Clock,
+              label: 'Jadwal',
+              href: '/jadwal-mingguan',
             },
             {
               icon: Wallet,
