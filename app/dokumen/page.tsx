@@ -83,6 +83,7 @@ export default function DokumenPage() {
                 <option value="Doktrin">Doktrin</option>
                 <option value="Bujuk">Bujuk</option>
                 <option value="Protap">Protap</option>
+                <option value="Lain-lain">Lain-lain</option>
               </select>
             </div>
           </div>
