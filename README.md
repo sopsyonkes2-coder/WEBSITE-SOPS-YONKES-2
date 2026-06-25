@@ -38,3 +38,10 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 =======
 # WEBSITE-SOPS-YONKES-2
 >>>>>>> 4bf85f78c578b1e36af49a215bfcce6d52865608
+
+Perintah Git Cepat
+Untuk mempermudah pembaruan kode ke repositori:
+
+Bash
+# Menambah, commit, dan push perubahan sekaligus
+git add . && git commit -m "Deskripsi perubahan Anda di sini" && git push origin main
