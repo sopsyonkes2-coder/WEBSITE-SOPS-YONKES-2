@@ -560,8 +560,7 @@ export default function Home() {
           ) : (
             testimonials.map((item, index) => (
               <div key={item.id ?? index} className="glass rounded-3xl p-8 border border-white/10 shadow-2xl">
-                <div className="mb-6 text-3xl leading-none text-emerald-400">”</div>
-                <p className="text-slate-300 mb-8">{item.quote}</p>
+                <p className="text-2xl italic font-[cursive] text-emerald-400 mb-6">{item.quote}</p>
                 <div>
                   <p className="text-lg font-semibold text-white">{item.name}</p>
                   <p className="text-sm text-slate-400">{item.role}</p>

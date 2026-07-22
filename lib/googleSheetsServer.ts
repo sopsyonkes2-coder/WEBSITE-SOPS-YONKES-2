@@ -65,19 +65,45 @@ function getCellValue(row: any, header: string) {
   return value?.toString().trim() || '';
 }
 
+function getCellValueByIndex(row: any, index: number) {
+  if (row._rawData && typeof row._rawData[index] !== 'undefined') {
+    return row._rawData[index]?.toString().trim() || '';
+  }
+  if (row[index] !== undefined) {
+    return row[index]?.toString().trim() || '';
+  }
+  return '';
+}
+
 export async function getReviewsFromSheet() {
   const sheet = await loadReviewSheet();
   const rows = await sheet.getRows();
-  const headerValues = sheet.headerValues.map((h) => h?.toString().trim().toUpperCase());
 
   return rows
     .map((row) => {
       const rowNumber = (row as any)._rowNumber ?? (row as any).rowNumber;
+      const name =
+        getCellValue(row, 'NAMA') ||
+        getCellValue(row, 'NAME') ||
+        getCellValue(row, 'A') ||
+        getCellValueByIndex(row, 0);
+      const role =
+        getCellValue(row, 'JABATAN') ||
+        getCellValue(row, 'ROLE') ||
+        getCellValue(row, 'B') ||
+        getCellValueByIndex(row, 1);
+      const quote =
+        getCellValue(row, 'ULASAN') ||
+        getCellValue(row, 'REVIEW') ||
+        getCellValue(row, 'QUOTE') ||
+        getCellValue(row, 'C') ||
+        getCellValueByIndex(row, 2);
+
       return {
         id: String(rowNumber),
-        name: getCellValue(row, 'NAMA') || getCellValue(row, 'NAME'),
-        role: getCellValue(row, 'JABATAN') || getCellValue(row, 'ROLE'),
-        quote: getCellValue(row, 'ULASAN') || getCellValue(row, 'REVIEW') || getCellValue(row, 'QUOTE'),
+        name,
+        role,
+        quote,
       } as SheetReviewItem;
     })
     .reverse();
