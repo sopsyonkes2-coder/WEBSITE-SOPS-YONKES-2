@@ -131,6 +131,36 @@
   background: linear-gradient(135deg, #0f172a 0%, #1e2937 50%, #166534 100%);
 }
 
+.news-marquee {
+  display: flex;
+  gap: 1.25rem;
+  animation: scroll-news 24s linear infinite;
+}
+
+@keyframes scroll-news {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.gallery-marquee {
+  display: flex;
+  gap: 1.5rem;
+  animation: gallery-slide 25s linear infinite;
+}
+
+@keyframes gallery-slide {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
 /* ===== FULLCALENDAR ===== */
 
 .fc {

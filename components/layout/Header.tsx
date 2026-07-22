@@ -8,7 +8,7 @@ import { useState, useEffect } from 'react';
 
 import Link from 'next/link';
 
-import { Menu, X, Home, Users, FileText, Calendar, Clock, DollarSign, ShieldAlert } from 'lucide-react';
+import { Menu, X, Home, Users, FileText, Calendar, Clock, DollarSign, ShieldAlert, Key } from 'lucide-react';
 
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -29,6 +29,8 @@ const navLinks = [
   { href: '/anggaran', label: 'Anggaran', icon: DollarSign },
 
   { href: '/Lapor', label: 'Lapor', icon: ShieldAlert },
+
+  { href: '/admin', label: 'Admin', icon: Key },
 
 ];
 

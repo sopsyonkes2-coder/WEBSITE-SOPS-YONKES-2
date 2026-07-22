@@ -9,7 +9,8 @@ export async function fetchSheetData(sheetName: string) {
     return [];
   }
 
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${sheetName}!A:Z?key=${API_KEY}`;
+  const encodedSheetName = encodeURIComponent(sheetName);
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodedSheetName}!A:Z?key=${API_KEY}`;
   
   const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) return [];
