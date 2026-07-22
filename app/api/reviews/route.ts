@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
-import { promises as fs } from 'fs';
-import path from 'path';
+import {
+  getReviewsFromSheet,
+  appendReviewToSheet,
+  deleteReviewFromSheet,
+} from '@/lib/googleSheetsServer';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -12,51 +15,18 @@ type ReviewItem = {
   quote: string;
 };
 
-const reviewsFile = path.join(process.cwd(), 'data', 'reviews.json');
-
-function generateId() {
-  return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-    ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
-async function writeReviews(reviews: ReviewItem[]) {
-  await fs.mkdir(path.dirname(reviewsFile), { recursive: true });
-  await fs.writeFile(reviewsFile, JSON.stringify(reviews, null, 2), 'utf-8');
-}
-
-async function readReviews(): Promise<ReviewItem[]> {
-  try {
-    const file = await fs.readFile(reviewsFile, 'utf-8');
-    const parsed = JSON.parse(file);
-    if (!Array.isArray(parsed)) return [];
-
-    let changed = false;
-    const reviews = parsed.map((item: any) => {
-      const id = item?.id || generateId();
-      if (!item?.id) changed = true;
-
-      return {
-        id,
-        name: item?.name || '',
-        role: item?.role || '',
-        quote: item?.quote || '',
-      };
-    });
-
-    if (changed) {
-      await writeReviews(reviews);
-    }
-
-    return reviews;
-  } catch {
-    return [];
-  }
-}
-
 export async function GET() {
-  const reviews = await readReviews();
-  return NextResponse.json(reviews);
+  try {
+    const reviews = await getReviewsFromSheet();
+    return NextResponse.json(reviews);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('Review GET error:', message);
+    return NextResponse.json(
+      { error: `Gagal membaca ulasan dari Google Sheets: ${message}` },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(req: Request) {
@@ -71,23 +41,14 @@ export async function POST(req: Request) {
       );
     }
 
-    const reviews = await readReviews();
-    const nextReviews = [
-      {
-        id: generateId(),
-        name,
-        role,
-        quote,
-      },
-      ...reviews,
-    ];
-
-    await writeReviews(nextReviews);
+    await appendReviewToSheet({ name, role, quote });
 
     return NextResponse.json({ message: 'Ulasan berhasil disimpan.' });
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('Review POST error:', message);
     return NextResponse.json(
-      { error: 'Gagal menyimpan ulasan.' },
+      { error: `Gagal menyimpan ulasan ke Google Sheets: ${message}` },
       { status: 500 }
     );
   }
@@ -105,21 +66,20 @@ export async function DELETE(req: Request) {
       );
     }
 
-    const reviews = await readReviews();
-    const nextReviews = reviews.filter((review) => review.id !== id);
-
-    if (nextReviews.length === reviews.length) {
+    const deleted = await deleteReviewFromSheet(id);
+    if (!deleted) {
       return NextResponse.json(
         { error: 'Ulasan tidak ditemukan.' },
         { status: 404 }
       );
     }
 
-    await writeReviews(nextReviews);
     return NextResponse.json({ message: 'Ulasan berhasil dihapus.' });
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('Review DELETE error:', message);
     return NextResponse.json(
-      { error: 'Gagal menghapus ulasan.' },
+      { error: `Gagal menghapus ulasan dari Google Sheets: ${message}` },
       { status: 500 }
     );
   }
