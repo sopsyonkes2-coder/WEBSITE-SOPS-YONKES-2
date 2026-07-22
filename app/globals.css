@@ -152,6 +152,71 @@
   animation: gallery-slide 25s linear infinite;
 }
 
+.gallery-scroll {
+  display: flex;
+  gap: 1.5rem;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 0.25rem;
+}
+
+.gallery-overlay-button {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+}
+
+.gallery-overlay-button.left-0 {
+  left: 1rem;
+}
+
+.gallery-overlay-button.right-0 {
+  right: 1rem;
+}
+
+.gallery-nav-btn {
+  width: 100%;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #a7f3d0;
+}
+
+.gallery-nav-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 9999px;
+}
+
+.gallery-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+
+.gallery-scroll::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 9999px;
+}
+
+.gallery-scroll::-webkit-scrollbar-thumb {
+  background: rgba(16, 185, 129, 0.6);
+  border-radius: 9999px;
+}
+
+.gallery-item {
+  min-width: 280px;
+  flex-shrink: 0;
+}
+
 @keyframes gallery-slide {
   0% {
     transform: translateX(0);

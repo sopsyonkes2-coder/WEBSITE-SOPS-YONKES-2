@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useEffect, useState, type FormEvent } from 'react';
+import { useMemo, useEffect, useState, useRef, type FormEvent } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 
@@ -14,6 +14,8 @@ import {
   BadgeDollarSign,
   Coins,
   ShieldAlert,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -120,7 +122,8 @@ export default function Home() {
   });
   const [submittingReview, setSubmittingReview] = useState(false);
   const [galleryPreviewOpen, setGalleryPreviewOpen] = useState(false);
-  const [activeGalleryItem, setActiveGalleryItem] = useState<GalleryItem | null>(null);
+  const [activeGalleryIndex, setActiveGalleryIndex] = useState<number | null>(null);
+  const galleryScrollRef = useRef<HTMLDivElement | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -170,15 +173,46 @@ export default function Home() {
 
   const testimonials = reviewData;
 
-  const openGalleryPreview = (item: GalleryItem) => {
-    setActiveGalleryItem(item);
+  const galleryItemsLoop = useMemo(() => galleryItems.concat(galleryItems), [galleryItems]);
+
+  const openGalleryPreview = (index: number) => {
+    setActiveGalleryIndex(index);
     setGalleryPreviewOpen(true);
   };
 
   const closeGalleryPreview = () => {
-    setActiveGalleryItem(null);
+    setActiveGalleryIndex(null);
     setGalleryPreviewOpen(false);
   };
+
+  const activeGalleryItem = activeGalleryIndex !== null ? galleryItems[activeGalleryIndex] : null;
+
+  const previewGallery = (direction: 'next' | 'prev') => {
+    if (activeGalleryIndex === null) return;
+    const nextIndex =
+      direction === 'next'
+        ? (activeGalleryIndex + 1) % galleryItems.length
+        : (activeGalleryIndex - 1 + galleryItems.length) % galleryItems.length;
+    setActiveGalleryIndex(nextIndex);
+  };
+
+  useEffect(() => {
+    const container = galleryScrollRef.current;
+    if (!container || galleryItemsLoop.length === 0) return;
+
+    const step = 1;
+    const maxScroll = container.scrollWidth / 2;
+
+    const id = window.setInterval(() => {
+      if (!container) return;
+      container.scrollLeft += step;
+      if (container.scrollLeft >= maxScroll) {
+        container.scrollLeft -= maxScroll;
+      }
+    }, 20);
+
+    return () => window.clearInterval(id);
+  }, [galleryItemsLoop]);
 
   const handleReviewSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -572,18 +606,18 @@ export default function Home() {
 
         {galleryItems.length > 0 && (
           <div className="mt-14 glass rounded-3xl border border-white/10 p-6 bg-slate-950/80">
-            <div className="mb-8 text-center">
+            <div className="mb-8">
               <h3 className="text-3xl font-black text-white">Galeri Kegiatan</h3>
             </div>
 
-            <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950/90 p-4">
-              <div className="gallery-marquee items-center">
-                {galleryItems.concat(galleryItems).map((item, index) => (
+            <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950/90 p-4">
+              <div ref={galleryScrollRef} className="gallery-scroll flex gap-6 overflow-x-auto scroll-smooth py-2">
+                {galleryItemsLoop.map((item, index) => (
                   <button
                     key={`${item.url}-${index}`}
                     type="button"
-                    onClick={() => openGalleryPreview(item)}
-                    className="min-w-[260px] flex-shrink-0 rounded-3xl overflow-hidden border border-white/10 bg-slate-900/80 shadow-xl relative focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                    onClick={() => openGalleryPreview(index % galleryItems.length)}
+                    className="gallery-item min-w-[260px] flex-shrink-0 rounded-3xl overflow-hidden border border-white/10 bg-slate-900/80 shadow-xl relative focus:outline-none focus:ring-2 focus:ring-emerald-400"
                   >
                     {item.isVideo ? (
                       <div className="relative h-52 w-full">
@@ -646,10 +680,21 @@ export default function Home() {
             </div>
 
             {activeGalleryItem && (
-              <div className="space-y-2 p-6 text-left text-white">
-                <h3 className="text-2xl font-bold">{activeGalleryItem.title || 'Preview Galeri'}</h3>
-                {activeGalleryItem.description && <p className="text-slate-300">{activeGalleryItem.description}</p>}
-              </div>
+              <>
+                <div className="space-y-2 p-6 text-left text-white">
+                  <h3 className="text-2xl font-bold">{activeGalleryItem.title || 'Preview Galeri'}</h3>
+                  {activeGalleryItem.description && <p className="text-slate-300">{activeGalleryItem.description}</p>}
+                </div>
+                <div className="flex items-center justify-between gap-3 p-6">
+                  <Button type="button" variant="outline" onClick={() => previewGallery('prev')}>
+                    Back
+                  </Button>
+                  <span className="text-sm text-slate-400">{activeGalleryIndex !== null ? `${activeGalleryIndex + 1} / ${galleryItems.length}` : ''}</span>
+                  <Button type="button" variant="outline" onClick={() => previewGallery('next')}>
+                    Next
+                  </Button>
+                </div>
+              </>
             )}
           </DialogContent>
         </Dialog>
