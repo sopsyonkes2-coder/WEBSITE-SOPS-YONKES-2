@@ -83,8 +83,8 @@ export default function AdminSecretPage() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 py-16">
-      <div className="mx-auto max-w-6xl px-6">
+    <main className="min-h-screen bg-slate-950 text-slate-100 py-16 px-4 sm:px-6 w-full">
+      <div className="w-full px-0">
         <Link href="/" className="inline-flex items-center gap-2 text-slate-300 hover:text-white mb-8">
           <ArrowLeft className="h-4 w-4" /> Kembali ke Beranda
         </Link>

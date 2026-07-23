@@ -92,8 +92,8 @@ export default function ProfilPage() {
   });
 
   return (
-    <div className="min-h-screen military-gradient pt-24 pb-20">
-      <div className="max-w-7xl mx-auto px-6">
+    <div className="min-h-screen military-gradient px-4 sm:px-6 pt-24 pb-20">
+      <div className="w-full px-0">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-16">
           <h1 className="text-5xl md:text-6xl font-black bg-gradient-to-r from-emerald-400 to-amber-400 bg-clip-text text-transparent">
             PROFIL YONKES 2

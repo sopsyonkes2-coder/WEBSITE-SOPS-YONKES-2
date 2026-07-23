@@ -579,9 +579,9 @@ const pieData = bidang
 
   const chartHeight = 350;
 return (
-  <div className="min-h-screen military-gradient pt-24 pb-20">
+  <div className="min-h-screen military-gradient px-4 sm:px-6 pt-24 pb-20 w-full">
 
-    <div className="max-w-7xl mx-auto px-6">
+    <div className="w-full px-0">
 
       <h1 className="text-5xl font-black text-center mb-10 bg-gradient-to-r from-emerald-400 to-amber-400 bg-clip-text text-transparent">
         DASHBOARD ANGGARAN

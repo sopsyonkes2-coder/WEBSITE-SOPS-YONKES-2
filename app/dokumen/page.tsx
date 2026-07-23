@@ -45,8 +45,8 @@ export default function DokumenPage() {
   const paginatedData = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
-    <div className="min-h-screen military-gradient pt-20 pb-20">
-      <div className="max-w-7xl mx-auto px-6">
+    <div className="min-h-screen military-gradient px-4 sm:px-6 pt-20 pb-20">
+      <div className="w-full px-0">
         <motion.h1
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}

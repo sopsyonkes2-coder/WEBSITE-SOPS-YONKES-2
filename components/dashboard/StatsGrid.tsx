@@ -135,7 +135,7 @@ export default function StatsGrid() {
       : '0.00';
 
   return (
-    <section className="max-w-7xl mx-auto px-6 -mt-12 relative z-20 pb-20">
+    <section className="w-full max-w-full px-6 -mt-12 relative z-20 pb-20">
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
 

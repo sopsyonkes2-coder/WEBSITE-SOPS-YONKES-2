@@ -27,7 +27,7 @@ export default function RootLayout({
       <body className={`${inter.className} bg-slate-950 text-slate-100`}>
         <ClientProviders>
           <Header />
-          <main className="min-h-screen">
+          <main className="min-h-screen w-full">
             {children}
           </main>
           <Footer />

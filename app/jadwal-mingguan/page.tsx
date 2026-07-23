@@ -158,8 +158,8 @@ export default function JadwalMingguanPage() {
   );
 
   return (
-    <div className="min-h-screen military-gradient pt-28 pb-20 px-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen military-gradient px-4 sm:px-6 pt-28 pb-20 w-full">
+      <div className="w-full px-0">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

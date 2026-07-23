@@ -23,7 +23,7 @@ export default function Footer() {
 
   return (
     <footer className="mt-20 border-t border-white/10 bg-slate-950/30 backdrop-blur-xl">
-      <div className="max-w-7xl mx-auto px-6 py-16">
+      <div className="w-full max-w-full px-6 py-16">
         <div className="grid md:grid-cols-4 gap-12 mb-16">
           {/* Identitas Satuan */}
           <div className="space-y-6">

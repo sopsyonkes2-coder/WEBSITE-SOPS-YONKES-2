@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, useEffect, useState, useRef, type FormEvent } from 'react';
-import { motion } from 'framer-motion';
+import { useMemo, useEffect, useState, useRef, type FormEvent, Fragment } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 
 import {
@@ -16,6 +16,7 @@ import {
   ShieldAlert,
   ChevronLeft,
   ChevronRight,
+  Shield,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -38,6 +39,188 @@ import {
 
 import StatsGrid from '@/components/dashboard/StatsGrid';
 import BaganAlarmModal from '@/components/BaganAlarmModal';
+
+// Komponen baru untuk Jam Digital dan Salam
+const DigitalClock = () => {
+  const [time, setTime] = useState<Date | null>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+    setTime(new Date());
+    const timerId = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(timerId);
+  }, []);
+
+  // Jangan render konten dinamis di server atau saat render awal client
+  if (!isClient || !time) return null;
+
+  const getGreeting = () => {
+    const hour = time.getHours();
+    if (hour >= 5 && hour < 11) return "Selamat Pagi, Tetap Semangat Mengabdi.";
+    if (hour >= 11 && hour < 15) return "Selamat Siang, Tetap Profesional dalam Bertugas.";
+    if (hour >= 15 && hour < 18) return "Selamat Sore, Semangat Menyelesaikan Tugas.";
+    return "Selamat Malam, Tetap Siaga dan Jaga Kehormatan.";
+  };
+
+  const day = time.toLocaleDateString('id-ID', { weekday: 'long' });
+  const date = time.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.2, duration: 0.5 }}
+      className="flex flex-col justify-center items-center text-center h-full"
+    >
+      <p className="text-base text-slate-300 mb-2">{getGreeting()}</p>
+      <div className="font-mono text-6xl font-bold tracking-widest text-cyan-300" style={{ textShadow: '0 0 15px rgba(56, 189, 248, 0.7)' }}>
+        {time.toLocaleTimeString('en-GB')}
+      </div>
+      <p className="text-lg font-semibold text-slate-400 mt-2">{day}, {date}</p>
+    </motion.div>
+  );
+};
+
+// Komponen baru untuk Quote Motivasi
+const MotivationWidget = () => {
+  const quotes = [
+      "Tidak ada medan yang terlalu berat bagi prajurit yang mengutamakan kehormatan dan pengabdian.",
+      "Pengabdian bukan tentang kemudahan, tetapi tentang kesetiaan menjalankan tugas hingga akhir.",
+      "Setiap langkah prajurit adalah bukti cinta kepada bangsa dan negara.",
+      "Kesulitan adalah latihan, pengabdian adalah kehormatan.",
+      "Prajurit sejati tidak mencari kenyamanan, tetapi memberikan rasa aman bagi rakyat.",
+      "Di mana tanah dipijak, di sana kehormatan dijaga.",
+      "Tugas boleh berat, tetapi semangat pengabdian tidak boleh surut.",
+      "Disiplin adalah kekuatan, loyalitas adalah kehormatan.",
+      "Keberanian bukan berarti tidak takut, tetapi tetap melangkah demi tugas.",
+      "Pengabdian kepada bangsa adalah kehormatan yang tidak dapat diukur dengan materi.",
+      "Selama Merah Putih berkibar, pengabdian tidak pernah berakhir.",
+      "Berlatih keras saat damai agar siap menghadapi setiap tantangan.",
+      "Profesionalisme adalah identitas prajurit modern.",
+      "Kesiapsiagaan hari ini adalah jaminan keamanan esok hari.",
+      "Semangat juang tidak ditentukan oleh keadaan, tetapi oleh tekad.",
+      "Yonkes 2 Kostrad hadir sebagai garda kesehatan yang siap mendukung setiap tugas operasi.",
+      "Menolong kehidupan adalah bagian dari kehormatan seorang prajurit kesehatan.",
+      "Setiap tindakan medis yang tepat adalah kekuatan bagi keberhasilan operasi.",
+      "Prajurit kesehatan bertugas menjaga harapan di tengah medan penugasan.",
+      "Kecepatan bertindak dapat menjadi penentu keselamatan rekan seperjuangan.",
+      "Di balik setiap operasi yang berhasil, ada dedikasi tenaga kesehatan militer.",
+      "Korps kesehatan adalah kekuatan yang menghidupkan semangat juang prajurit.",
+      "Mengobati dengan ilmu, mengabdi dengan hati.",
+      "Pelayanan kesehatan adalah bentuk pengabdian tanpa pamrih.",
+      "Setiap luka yang dirawat adalah langkah menuju kemenangan.",
+      "Kesigapan adalah nafas seorang prajurit kesehatan.",
+      "Keahlian medis berpadu dengan disiplin militer menghasilkan pelayanan terbaik.",
+      "Prajurit kesehatan selalu siap di garis depan maupun belakang.",
+      "Pengabdian tidak mengenal waktu ketika keselamatan menjadi prioritas.",
+      "Melayani dengan profesional, mengabdi dengan kehormatan.",
+      "Yonkes 2 Kostrad, tangguh dalam tugas, tulus dalam pengabdian.",
+      "Tidak ada pengorbanan yang sia-sia demi keselamatan sesama prajurit.",
+      "Setiap latihan membentuk kesiapan menghadapi tantangan sesungguhnya.",
+      "Disiplin adalah fondasi setiap keberhasilan operasi.",
+      "Kesetiaan kepada bangsa diwujudkan melalui tindakan nyata.",
+      "Prajurit hebat selalu mengutamakan kepentingan bangsa di atas kepentingan pribadi.",
+      "Ketangguhan lahir dari latihan yang konsisten.",
+      "Semangat juang tumbuh dari rasa tanggung jawab.",
+      "Kehormatan diraih melalui integritas.",
+      "Loyalitas adalah komitmen yang dibuktikan dalam tindakan.",
+      "Tugas hari ini menentukan keberhasilan esok hari.",
+      "Setiap detik kesiapsiagaan adalah investasi bagi keberhasilan misi.",
+      "Tidak ada keberhasilan tanpa kerja sama yang solid.",
+      "Soliditas satuan adalah kekuatan yang tidak tergantikan.",
+      "Kepercayaan dibangun melalui profesionalisme.",
+      "Tetap tenang dalam tekanan adalah ciri prajurit sejati.",
+      "Keberhasilan operasi dimulai dari kesiapan personel.",
+      "Prajurit kesehatan adalah pelindung kehidupan di setiap penugasan.",
+      "Melayani tanpa mengenal lelah adalah kebanggaan.",
+      "Keselamatan prajurit adalah prioritas utama.",
+      "Tugas mulia dimulai dari niat yang tulus.",
+      "Bangga menjadi bagian dari pengabdian kepada bangsa.",
+      "Pengabdian tidak mengenal batas tempat dan waktu.",
+      "Setiap latihan memperkuat kesiapan menghadapi tugas.",
+      "Semangat pantang menyerah adalah identitas prajurit.",
+      "Keberanian dan kepedulian berjalan berdampingan.",
+      "Menolong sesama adalah panggilan kehormatan.",
+      "Jadilah prajurit yang memberi manfaat bagi banyak orang.",
+      "Kesehatan yang terjaga mendukung kesiapan operasi.",
+      "Keteladanan dimulai dari disiplin diri.",
+      "Pengabdian adalah warisan yang akan dikenang.",
+      "Bersama menjaga kehormatan satuan.",
+      "Kekuatan terbesar adalah persatuan.",
+      "Setiap keberhasilan diawali dengan persiapan yang matang.",
+      "Tetap rendah hati dalam setiap keberhasilan.",
+      "Integritas adalah perlengkapan yang tidak pernah boleh ditinggalkan.",
+      "Keikhlasan memperkuat setiap langkah pengabdian.",
+      "Menjadi prajurit berarti siap memberi yang terbaik setiap saat.",
+      "Tanggung jawab adalah kehormatan yang harus dijaga.",
+      "Semangat melayani adalah kekuatan tanpa batas.",
+      "Kedisiplinan hari ini adalah prestasi masa depan.",
+      "Kerja keras mengalahkan bakat yang tidak diasah.",
+      "Jangan pernah lelah untuk terus belajar.",
+      "Latihan yang serius melahirkan kesiapan yang sesungguhnya.",
+      "Profesionalisme dibangun dari kebiasaan yang baik.",
+      "Jiwa korsa memperkuat setiap langkah pengabdian.",
+      "Bersatu dalam tugas, kuat dalam pengabdian.",
+      "Tidak ada kemenangan tanpa pengorbanan.",
+      "Menjaga kesehatan berarti menjaga kesiapan tempur.",
+      "Prajurit yang hebat selalu siap membantu sesama.",
+      "Kepedulian adalah bagian dari jiwa prajurit kesehatan.",
+      "Pengabdian adalah pilihan mulia yang dijalani dengan bangga.",
+      "Tegas dalam prinsip, bijak dalam tindakan.",
+      "Semangat juang tidak mengenal kata menyerah.",
+      "Setiap hari adalah kesempatan untuk menjadi lebih baik.",
+      "Bangsa membutuhkan prajurit yang tangguh dan berintegritas.",
+      "Pelayanan terbaik lahir dari hati yang tulus.",
+      "Kehormatan satuan dijaga melalui tindakan setiap anggotanya.",
+      "Berani bertindak, siap bertanggung jawab.",
+      "Kepercayaan rakyat adalah amanah yang harus dijaga.",
+      "Yonkes 2 Kostrad, siap mendukung setiap operasi dengan profesionalisme dan dedikasi.",
+      "Melayani kehidupan adalah kehormatan bagi prajurit kesehatan.",
+      "Setiap keberhasilan misi adalah hasil kerja sama seluruh unsur satuan.",
+      "Jadikan disiplin sebagai kebiasaan, bukan sekadar kewajiban.",
+      "Prajurit profesional selalu siap kapan pun negara memanggil.",
+      "Menjadi kuat bukan hanya secara fisik, tetapi juga mental dan moral.",
+      "Teruslah mengabdi dengan hati, bekerja dengan profesional, dan menjaga kehormatan satuan.",
+      "Yudha Bhakti Husada, mengabdi dengan tulus, melayani dengan profesional.",
+      "Semangat pengabdian adalah obat terbaik bagi setiap tantangan.",
+      "Satu tekad, satu semangat, satu pengabdian untuk Indonesia."
+  ];
+
+  const [index, setIndex] = useState(Math.floor(Math.random() * quotes.length));
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+    const intervalId = setInterval(() => {
+      setIndex(prevIndex => (prevIndex + 1) % quotes.length);
+    }, 10000);
+    return () => clearInterval(intervalId);
+  }, [quotes.length]);
+
+  // Jangan render konten dinamis di server
+  if (!isClient) return null;
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="glass rounded-3xl p-6 flex flex-col justify-center h-full">
+      <div className="flex items-center justify-center gap-3 mb-4">
+        <Shield className="w-6 h-6 text-amber-400" />
+        <h3 className="text-lg font-bold text-amber-400 uppercase tracking-widest">Motivasi Pengabdian</h3>
+      </div>
+      <div className="relative h-24 flex items-center">
+        <AnimatePresence mode="wait">
+          <motion.p
+            key={index}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.5 }}
+            className="text-slate-200 text-lg italic leading-relaxed absolute w-full text-center">"{quotes[index]}"</motion.p>
+        </AnimatePresence>
+      </div>
+    </motion.div>
+  );
+};
 
 function cleanCurrency(value: string) {
   if (!value) return 0;
@@ -282,11 +465,35 @@ export default function Home() {
 
       {/* HERO */}
 
-      <section className="relative h-screen flex items-center justify-center pt-20">
+      <section className="relative min-h-screen flex flex-col items-center justify-center gap-16 pt-28 pb-20 px-6 overflow-hidden">
 
-        <div className="absolute inset-0 bg-[radial-gradient(at_center,#166534_0%,transparent_70%)] opacity-40" />
+        {/* Background Image Separuh dengan Opacity */}
+        <div className="absolute inset-0 w-full bg-[url('/images/background.png')] bg-cover bg-center opacity-10 z-0"></div>
 
-        <div className="relative z-10 text-center px-6 max-w-6xl mx-auto">
+        <div className="relative w-full max-w-full text-center px-6">
+
+          <motion.div
+            animate={{
+              y: [0, 5, 0],
+            }}
+            transition={{
+              duration: 2,
+              repeat: Infinity,
+              delay: 0.5
+            }}
+            className="text-slate-400 mb-4"
+          >
+            ↓ Scroll untuk melihat
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.5 }}
+            className="w-full max-w-2xl mx-auto"
+          >
+            <DigitalClock />
+          </motion.div>
 
           <motion.div
             initial={{
@@ -298,7 +505,8 @@ export default function Home() {
               y: 0,
             }}
             transition={{
-              duration: 0.8,
+              delay: 0.4,
+              duration: 0.8
             }}
           >
 
@@ -333,20 +541,15 @@ export default function Home() {
 
         </div>
 
-        <motion.div
-          animate={{
-            y: [0, 10, 0],
-          }}
-          transition={{
-            duration: 2,
-            repeat: Infinity,
-          }}
-          className="absolute top-24 left-1/2 -translate-x-1/2 text-slate-400"
-        >
-          ↓ Scroll untuk melihat
-        </motion.div>
-
       </section>
+
+      {/* WIDGET MOTIVASI */}
+      <section className="w-full max-w-full px-6 pb-16">
+        <div className="w-full max-w-4xl mx-auto">
+          <MotivationWidget />
+        </div>
+      </section>
+
 
       {/* STATS */}
 
@@ -354,7 +557,7 @@ export default function Home() {
 
       {/* RINGKASAN ANGGARAN */}
 
-      <section className="max-w-7xl mx-auto px-6 py-16">
+      <section className="w-full max-w-full px-6 py-16">
 
         <div className="text-center mb-12">
 
@@ -426,7 +629,7 @@ export default function Home() {
 
       {/* QUICK ACCESS */}
 
-      <section className="max-w-7xl mx-auto px-6 py-16">
+      <section className="w-full max-w-full px-6 py-16">
 
         <h2 className="text-4xl font-black bg-gradient-to-r from-emerald-400 to-amber-400 bg-clip-text text-transparent mb-10 text-center">
           QUICK ACCESS
@@ -495,7 +698,7 @@ export default function Home() {
 
       {/* BAGAN ALARM */}
 
-      <section className="max-w-7xl mx-auto px-6 py-16">
+      <section className="w-full max-w-full px-6 py-16">
 
         <h2 className="text-4xl font-black bg-gradient-to-r from-emerald-400 to-amber-400 bg-clip-text text-transparent mb-10 text-center">
           BAGAN ALARM
@@ -510,7 +713,7 @@ export default function Home() {
       </section>
 
       {/* ULASAN PENGUNJUNG */}
-      <section className="max-w-7xl mx-auto px-6 py-16">
+      <section className="w-full max-w-full px-6 py-16">
         <div className="flex flex-col items-center gap-6 text-center mb-12">
           <div>
             <h2 className="text-4xl font-black bg-gradient-to-r from-emerald-400 to-amber-400 bg-clip-text text-transparent">

@@ -83,8 +83,8 @@ export default function AdminPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_right,_rgba(16,185,129,0.18),_transparent_35%),radial-gradient(circle_at_bottom_left,_rgba(59,130,246,0.14),_transparent_30%),#020617] text-slate-100 py-14">
-      <div className="mx-auto max-w-6xl px-6">
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top_right,_rgba(16,185,129,0.18),_transparent_35%),radial-gradient(circle_at_bottom_left,_rgba(59,130,246,0.14),_transparent_30%),#020617] text-slate-100 py-14 px-4 sm:px-6 w-full">
+      <div className="w-full px-0">
         <div className="mb-10 rounded-[2.5rem] border border-white/10 bg-slate-950/80 p-10 shadow-2xl backdrop-blur-xl overflow-hidden relative">
           <div className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-emerald-400/10 to-transparent" />
           <div className="relative grid gap-8 lg:grid-cols-[1.4fr_1fr] items-center">
