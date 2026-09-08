@@ -1538,6 +1538,617 @@ try {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// FORM ANGGARAN MASSAL
+// ─────────────────────────────────────────────────────────────────────────────
+
+type AngMassalRow = {
+  key: string;
+  tahun: string;
+  bidang: string;
+  jenis: string;
+  namaKegiatan: string;
+  anggaranPerPelaksanaan: string;
+  jumlahPelaksanaan: string;
+};
+
+function FormAnggaranMassal({
+  onClose,
+  getHeaders,
+  onSuccess,
+}: {
+  onClose: () => void;
+  getHeaders: () => Record<string, string>;
+  onSuccess: () => void;
+}) {
+  const year = String(new Date().getFullYear());
+  const emptyRow = (): AngMassalRow => ({
+    key: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    tahun: year,
+    bidang: '',
+    jenis: '',
+    namaKegiatan: '',
+    anggaranPerPelaksanaan: '',
+    jumlahPelaksanaan: '',
+  });
+
+  const [rows, setRows] = useState<AngMassalRow[]>([emptyRow(), emptyRow()]);
+  const [masterRows, setMasterRows] = useState<Record<string, string>[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [progress, setProgress] = useState({ current: 0, total: 0 });
+
+  useEffect(() => {
+    fetch('/api/admin?sheet=MASTER%20KOMPONEN', { headers: getHeaders() })
+      .then(async (r) => {
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || 'Gagal memuat master');
+        setMasterRows(d.rows || []);
+      })
+      .catch((e) => toast.error(e.message || 'Gagal memuat master'));
+  }, [getHeaders]);
+
+  const bidangOptions = Array.from(
+    new Set(masterRows.map((r) => r.BIDANG).filter(Boolean))
+  );
+
+  const jenisFor = (bidang: string) =>
+    Array.from(
+      new Set(
+        masterRows
+          .filter((r) => r.BIDANG === bidang)
+          .map((r) => r.JENIS)
+          .filter(Boolean)
+      )
+    );
+
+  const komponenFor = (bidang: string, jenis: string) =>
+    masterRows
+      .filter((r) => r.BIDANG === bidang && r.JENIS === jenis)
+      .map((r) => r.KOMPONEN)
+      .filter(Boolean);
+
+  const updateRow = (key: string, patch: Partial<AngMassalRow>) => {
+    setRows((prev) =>
+      prev.map((r) => (r.key === key ? { ...r, ...patch } : r))
+    );
+  };
+
+  const handleSave = async () => {
+    const valid = rows.filter(
+      (r) =>
+        r.bidang &&
+        r.jenis &&
+        r.namaKegiatan.trim() &&
+        toNumber(r.anggaranPerPelaksanaan) > 0 &&
+        Number(r.jumlahPelaksanaan) > 0
+    );
+    if (valid.length === 0) {
+      toast.error('Isi minimal 1 baris lengkap (bidang, jenis, nama, anggaran, jumlah).');
+      return;
+    }
+
+    setSaving(true);
+    setProgress({ current: 0, total: valid.length });
+    let ok = 0;
+    try {
+      for (let i = 0; i < valid.length; i++) {
+        const r = valid[i];
+        setProgress({ current: i, total: valid.length });
+        const komponen = komponenFor(r.bidang, r.jenis);
+        if (komponen.length === 0) {
+          throw new Error(
+            `Baris "${r.namaKegiatan}": komponen kosong untuk ${r.bidang}/${r.jenis}`
+          );
+        }
+        const res = await fetch('/api/admin', {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify({
+            action: 'append-anggaran',
+            tahun: r.tahun,
+            bidang: r.bidang,
+            jenis: r.jenis,
+            namaKegiatan: r.namaKegiatan.trim(),
+            anggaranPerPelaksanaan: toNumber(r.anggaranPerPelaksanaan),
+            jumlahPelaksanaan: Number(r.jumlahPelaksanaan),
+            komponen,
+          }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || `Gagal simpan: ${r.namaKegiatan}`);
+        ok += 1;
+        setProgress({ current: ok, total: valid.length });
+      }
+      toast.success(`${ok} anggaran berhasil ditambahkan (detail otomatis dibuat).`);
+      onSuccess();
+      onClose();
+    } catch (err) {
+      toast.error((err as Error).message || 'Gagal input massal anggaran');
+      if (ok > 0) onSuccess();
+    } finally {
+      setSaving(false);
+      setProgress({ current: 0, total: 0 });
+    }
+  };
+
+  return (
+    <ModalWrapper title="Input Massal Anggaran" onClose={onClose} maxWidth="max-w-5xl">
+      <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-200">
+          Sama seperti form biasa: pilih Bidang → Jenis, komponen &amp; DETAIL ANGGARAN
+          terbentuk <strong>otomatis</strong> dari MASTER KOMPONEN saat disimpan.
+        </div>
+        <div className="space-y-4">
+          {rows.map((r, idx) => {
+            const komp = r.bidang && r.jenis ? komponenFor(r.bidang, r.jenis) : [];
+            const totalPagu =
+              toNumber(r.anggaranPerPelaksanaan) * Number(r.jumlahPelaksanaan || 0);
+            return (
+              <div
+                key={r.key}
+                className="rounded-xl border border-white/10 bg-slate-900/40 p-4 space-y-3"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] uppercase tracking-wider text-emerald-400 font-bold">
+                    Kegiatan {idx + 1}
+                  </span>
+                  {rows.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setRows((prev) => prev.filter((x) => x.key !== r.key))
+                      }
+                      className="text-xs text-red-400 hover:text-red-300"
+                    >
+                      Hapus
+                    </button>
+                  )}
+                </div>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <Field label="Tahun">
+                    <TextInput
+                      value={r.tahun}
+                      onChange={(v) => updateRow(r.key, { tahun: v })}
+                      placeholder="Tahun"
+                    />
+                  </Field>
+                  <Field label="Nama Kegiatan">
+                    <TextInput
+                      value={r.namaKegiatan}
+                      onChange={(v) => updateRow(r.key, { namaKegiatan: v })}
+                      placeholder="Contoh: BINSAT"
+                    />
+                  </Field>
+                </div>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <Field label="Bidang">
+                    <SelectInput
+                      value={r.bidang}
+                      placeholder="— Pilih Bidang —"
+                      options={bidangOptions}
+                      onChange={(v) => updateRow(r.key, { bidang: v, jenis: '' })}
+                    />
+                  </Field>
+                  <Field label="Jenis">
+                    <SelectInput
+                      value={r.jenis}
+                      placeholder="— Pilih Jenis —"
+                      options={jenisFor(r.bidang)}
+                      onChange={(v) => updateRow(r.key, { jenis: v })}
+                    />
+                  </Field>
+                </div>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <Field label="Anggaran / Pelaksanaan (Rp)">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={
+                        r.anggaranPerPelaksanaan
+                          ? formatRupiah(r.anggaranPerPelaksanaan)
+                          : ''
+                      }
+                      onChange={(e) =>
+                        updateRow(r.key, {
+                          anggaranPerPelaksanaan: e.target.value.replace(/\D/g, ''),
+                        })
+                      }
+                      placeholder="Rp 12.000.000"
+                      className="w-full rounded-xl border border-white/10 bg-slate-900/80 px-3 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                    />
+                  </Field>
+                  <Field label="Jumlah Pelaksanaan">
+                    <input
+                      type="number"
+                      min={1}
+                      max={24}
+                      value={r.jumlahPelaksanaan}
+                      onChange={(e) =>
+                        updateRow(r.key, { jumlahPelaksanaan: e.target.value })
+                      }
+                      placeholder="4"
+                      className="w-full rounded-xl border border-white/10 bg-slate-900/80 px-3 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                    />
+                  </Field>
+                </div>
+                {totalPagu > 0 && (
+                  <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-3 py-2">
+                    <p className="text-[10px] text-emerald-500 uppercase font-semibold">
+                      Total Pagu
+                    </p>
+                    <p className="text-lg font-black text-emerald-300">
+                      {formatRupiah(totalPagu)}
+                    </p>
+                    <p className="text-[11px] text-emerald-500/70">
+                      {formatRupiah(r.anggaranPerPelaksanaan)} × {r.jumlahPelaksanaan}{' '}
+                      pelaksanaan
+                    </p>
+                  </div>
+                )}
+                {r.jenis && (
+                  <div>
+                    <p className="text-xs text-slate-500 font-semibold mb-1.5">
+                      Komponen (otomatis dari MASTER)
+                    </p>
+                    {komp.length === 0 ? (
+                      <p className="text-xs text-amber-400">
+                        Belum ada komponen untuk {r.bidang}/{r.jenis}. Isi MASTER KOMPONEN
+                        dulu.
+                      </p>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5">
+                        {komp.map((k) => (
+                          <span
+                            key={k}
+                            className="px-2 py-1 rounded-lg bg-slate-900/80 border border-white/5 text-xs text-slate-200"
+                          >
+                            {k}
+                          </span>
+                        ))}
+                        <span className="text-[11px] text-slate-500 self-center ml-1">
+                          → {komp.length} komponen × {r.jumlahPelaksanaan || '?'}{' '}
+                          pelaksanaan = detail otomatis
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <button
+          type="button"
+          onClick={() => setRows((prev) => [...prev, emptyRow()])}
+          className="text-sm text-emerald-400 hover:text-emerald-300 font-semibold"
+        >
+          + Tambah kegiatan
+        </button>
+        {saving && progress.total > 0 && (
+          <p className="text-xs text-amber-300">
+            Menyimpan {progress.current}/{progress.total}...
+          </p>
+        )}
+      </div>
+      <ModalFooter
+        onCancel={onClose}
+        onSave={handleSave}
+        saving={saving}
+        label="Simpan Semua"
+      />
+    </ModalWrapper>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FORM REALISASI MASSAL
+// ─────────────────────────────────────────────────────────────────────────────
+
+type RelMassalRow = {
+  key: string;
+  tahun: string;
+  bulan: string;
+  idAnggaran: string;
+  idDetail: string;
+  nilaiRealisasi: string;
+};
+
+function FormRealisasiMassal({
+  onClose,
+  getHeaders,
+  onSuccess,
+}: {
+  onClose: () => void;
+  getHeaders: () => Record<string, string>;
+  onSuccess: () => void;
+}) {
+  const year = String(new Date().getFullYear());
+  const emptyRow = (): RelMassalRow => ({
+    key: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    tahun: year,
+    bulan: '',
+    idAnggaran: '',
+    idDetail: '',
+    nilaiRealisasi: '',
+  });
+
+  const [rows, setRows] = useState<RelMassalRow[]>([emptyRow(), emptyRow()]);
+  const [anggaranList, setAnggaranList] = useState<Record<string, string>[]>([]);
+  const [detailList, setDetailList] = useState<DetailRow[]>([]);
+  const [realisasiList, setRealisasiList] = useState<RealisasiRow[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [progress, setProgress] = useState({ current: 0, total: 0 });
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/admin?sheet=ANGGARAN', { headers: getHeaders() }).then((r) =>
+        r.json()
+      ),
+      fetch(`/api/admin?sheet=${encodeURIComponent('DETAIL ANGGARAN')}`, {
+        headers: getHeaders(),
+      }).then((r) => r.json()),
+      fetch('/api/admin?sheet=REALISASI', { headers: getHeaders() }).then((r) =>
+        r.json()
+      ),
+    ])
+      .then(([a, d, rel]) => {
+        setAnggaranList(a.rows || []);
+        setDetailList((d.rows || []) as DetailRow[]);
+        setRealisasiList((rel.rows || []) as RealisasiRow[]);
+      })
+      .catch(() => toast.error('Gagal memuat data anggaran/detail'));
+  }, [getHeaders]);
+
+  const updateRow = (key: string, patch: Partial<RelMassalRow>) => {
+    setRows((prev) =>
+      prev.map((r) => (r.key === key ? { ...r, ...patch } : r))
+    );
+  };
+
+  const detailsFor = (idAnggaran: string) =>
+    detailList.filter((d) => d['ID ANGGARAN'] === idAnggaran);
+
+  const sisaForDetail = (idDetail: string) => {
+    const d = detailList.find((x) => x['ID DETAIL'] === idDetail);
+    const pagu = d ? toNumber(d['PAGU KOMPONEN']) : 0;
+    const used = getDetailRealizationTotal(realisasiList, idDetail);
+    return Math.max(0, pagu - used);
+  };
+
+  const handleSave = async () => {
+    const valid = rows.filter(
+      (r) =>
+        r.tahun &&
+        r.bulan &&
+        r.idAnggaran &&
+        r.idDetail &&
+        toNumber(r.nilaiRealisasi) > 0
+    );
+    if (valid.length === 0) {
+      toast.error('Isi minimal 1 baris lengkap (tahun, bulan, kegiatan, detail, nilai).');
+      return;
+    }
+
+    setSaving(true);
+    setProgress({ current: 0, total: valid.length });
+    let ok = 0;
+    try {
+      for (let i = 0; i < valid.length; i++) {
+        const r = valid[i];
+        setProgress({ current: i, total: valid.length });
+        const res = await fetch('/api/admin', {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify({
+            action: 'append-realisasi',
+            tahun: r.tahun,
+            bulan: r.bulan,
+            idAnggaran: r.idAnggaran,
+            idDetail: r.idDetail,
+            nilaiRealisasi: String(toNumber(r.nilaiRealisasi)),
+          }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || 'Gagal simpan realisasi');
+        ok += 1;
+        setProgress({ current: ok, total: valid.length });
+      }
+      toast.success(`${ok} realisasi berhasil ditambahkan.`);
+      onSuccess();
+      onClose();
+    } catch (err) {
+      toast.error((err as Error).message || 'Gagal input massal realisasi');
+      if (ok > 0) onSuccess();
+    } finally {
+      setSaving(false);
+      setProgress({ current: 0, total: 0 });
+    }
+  };
+
+  return (
+    <ModalWrapper title="Input Massal Realisasi" onClose={onClose} maxWidth="max-w-5xl">
+      <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
+        <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-3 text-xs text-blue-200">
+          Sama seperti form biasa: pilih Tahun → Kegiatan → Pelaksanaan/Komponen. Sisa pagu
+          ditampilkan otomatis. Pastikan pagu sudah diisi di DETAIL ANGGARAN.
+        </div>
+        <div className="space-y-4">
+          {rows.map((r, idx) => {
+            const sisa = r.idDetail ? sisaForDetail(r.idDetail) : 0;
+            const nilai = toNumber(r.nilaiRealisasi);
+            const melebihi = !!r.idDetail && nilai > sisa;
+            const detail = detailList.find((d) => d['ID DETAIL'] === r.idDetail);
+            return (
+              <div
+                key={r.key}
+                className="rounded-xl border border-white/10 bg-slate-900/40 p-4 space-y-3"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] uppercase tracking-wider text-blue-400 font-bold">
+                    Realisasi {idx + 1}
+                  </span>
+                  {rows.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setRows((prev) => prev.filter((x) => x.key !== r.key))
+                      }
+                      className="text-xs text-red-400 hover:text-red-300"
+                    >
+                      Hapus
+                    </button>
+                  )}
+                </div>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <Field label="Tahun">
+                    <TextInput
+                      value={r.tahun}
+                      onChange={(v) =>
+                        updateRow(r.key, { tahun: v, idAnggaran: '', idDetail: '' })
+                      }
+                      placeholder="Tahun"
+                    />
+                  </Field>
+                  <Field label="Bulan">
+                    <SelectInput
+                      value={r.bulan}
+                      placeholder="— Pilih Bulan —"
+                      options={BULAN_OPTIONS}
+                      onChange={(v) => updateRow(r.key, { bulan: v })}
+                    />
+                  </Field>
+                </div>
+                <Field label="Kegiatan Anggaran">
+                  <div className="relative">
+                    <select
+                      value={r.idAnggaran}
+                      onChange={(e) =>
+                        updateRow(r.key, {
+                          idAnggaran: e.target.value,
+                          idDetail: '',
+                        })
+                      }
+                      className="w-full appearance-none rounded-xl border border-white/10 bg-slate-900/80 px-3 py-2.5 pr-8 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                    >
+                      <option value="">— Pilih Kegiatan —</option>
+                      {anggaranList
+                        .filter((a) => !r.tahun || a.TAHUN === r.tahun)
+                        .map((a) => (
+                          <option key={a['ID ANGGARAN']} value={a['ID ANGGARAN']}>
+                            {a['ID ANGGARAN']} — {a['NAMA KEGIATAN']} ({a.JENIS})
+                          </option>
+                        ))}
+                    </select>
+                    <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+                  </div>
+                </Field>
+                <Field label="Pelaksanaan & Komponen">
+                  <div className="relative">
+                    <select
+                      value={r.idDetail}
+                      onChange={(e) =>
+                        updateRow(r.key, {
+                          idDetail: e.target.value,
+                          nilaiRealisasi: '',
+                        })
+                      }
+                      className="w-full appearance-none rounded-xl border border-white/10 bg-slate-900/80 px-3 py-2.5 pr-8 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                    >
+                      <option value="">— Pilih Pelaksanaan & Komponen —</option>
+                      {detailsFor(r.idAnggaran).map((d) => {
+                        const pagu = toNumber(d['PAGU KOMPONEN']);
+                        const rel = getDetailRealizationTotal(
+                          realisasiList,
+                          d['ID DETAIL']
+                        );
+                        const sisaOpt = Math.max(0, pagu - rel);
+                        return (
+                          <option key={d['ID DETAIL']} value={d['ID DETAIL']}>
+                            {d.PELAKSANAAN} — {d.KOMPONEN}
+                            {pagu > 0
+                              ? ` — Sisa ${formatRupiah(sisaOpt)}`
+                              : ' — PAGU BELUM DIATUR'}
+                          </option>
+                        );
+                      })}
+                    </select>
+                    <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+                  </div>
+                </Field>
+                {detail && (
+                  <div className="rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 grid grid-cols-3 gap-2 text-xs">
+                    <div>
+                      <p className="text-slate-500">Pagu</p>
+                      <p className="font-bold text-emerald-400">
+                        {formatRupiahZero(detail['PAGU KOMPONEN'])}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Sisa</p>
+                      <p
+                        className={`font-bold ${sisa > 0 ? 'text-emerald-400' : 'text-red-400'}`}
+                      >
+                        {formatRupiahZero(sisa)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Komponen</p>
+                      <p className="font-medium text-slate-200 truncate">
+                        {detail.KOMPONEN}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                <Field label="Nilai Realisasi (Rp)">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={r.nilaiRealisasi ? formatRupiah(r.nilaiRealisasi) : ''}
+                    onChange={(e) =>
+                      updateRow(r.key, {
+                        nilaiRealisasi: e.target.value.replace(/\D/g, ''),
+                      })
+                    }
+                    placeholder="Rp 5.000.000"
+                    className={`w-full rounded-xl border bg-slate-900/80 px-3 py-2.5 text-white text-sm focus:outline-none focus:ring-2 ${
+                      melebihi
+                        ? 'border-red-500/60 focus:ring-red-500/40'
+                        : 'border-white/10 focus:ring-emerald-500/40'
+                    }`}
+                  />
+                  {melebihi && (
+                    <p className="text-xs text-red-400 mt-1">
+                      Melebihi sisa pagu. Maksimal {formatRupiah(sisa)}.
+                    </p>
+                  )}
+                </Field>
+              </div>
+            );
+          })}
+        </div>
+        <button
+          type="button"
+          onClick={() => setRows((prev) => [...prev, emptyRow()])}
+          className="text-sm text-emerald-400 hover:text-emerald-300 font-semibold"
+        >
+          + Tambah realisasi
+        </button>
+        {saving && progress.total > 0 && (
+          <p className="text-xs text-amber-300">
+            Menyimpan {progress.current}/{progress.total}...
+          </p>
+        )}
+      </div>
+      <ModalFooter
+        onCancel={onClose}
+        onSave={handleSave}
+        saving={saving}
+        label="Simpan Semua"
+      />
+    </ModalWrapper>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // DETAIL ANGGARAN EDITOR
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -2475,10 +3086,16 @@ export default function AdminPage() {
   const [showAngForm, setShowAngForm] =
     useState(false);
 
+  const [showAngMassal, setShowAngMassal] =
+    useState(false);
+
   const [showJadwalEditor, setShowJadwalEditor] =
     useState(false);
 
   const [showRelForm, setShowRelForm] =
+    useState(false);
+
+  const [showRelMassal, setShowRelMassal] =
     useState(false);
 
   const [
@@ -3201,15 +3818,12 @@ export default function AdminPage() {
   /**
    * Hapus SEMUA baris DETAIL ANGGARAN + REALISASI yang ID ANGGARAN-nya sama,
    * lalu hapus baris ANGGARAN-nya.
-   * - Selalu fetch data segar (bukan cache)
-   * - Hapus dari id/index terbesar dulu (hindari geser baris GSheet)
    */
   const cascadeDeleteAnggaran = async (anggaranRowId: string) => {
     const row = sheetData?.rows?.find((r) => r.id === anggaranRowId);
     const idAnggaran = String(row?.['ID ANGGARAN'] || '').trim();
 
     if (!idAnggaran) {
-      // Fallback: hapus baris anggaran saja
       await deleteSheetRow('ANGGARAN', anggaranRowId);
       return;
     }
@@ -3217,7 +3831,7 @@ export default function AdminPage() {
     const matchAnggaran = (val: string | undefined) =>
       String(val || '').trim() === idAnggaran;
 
-    // 1) REALISASI — fetch segar, hapus semua yang cocok (index besar → kecil)
+    // 1) REALISASI
     {
       const rRes = await fetch('/api/admin?sheet=REALISASI', {
         headers: getHeaders(),
@@ -3232,7 +3846,7 @@ export default function AdminPage() {
       }
     }
 
-    // 2) DETAIL ANGGARAN — fetch segar lagi, hapus SEMUA pelaksanaan terkait
+    // 2) DETAIL ANGGARAN — semua pelaksanaan
     {
       const dRes = await fetch(
         `/api/admin?sheet=${encodeURIComponent('DETAIL ANGGARAN')}`,
@@ -3248,56 +3862,131 @@ export default function AdminPage() {
       }
     }
 
-    // 3) ANGGARAN — cari ulang baris by ID ANGGARAN (id baris bisa berubah setelah hapus lain)
+    // 3) ANGGARAN — cari ulang by ID ANGGARAN
     {
       const aRes = await fetch('/api/admin?sheet=ANGGARAN', {
         headers: getHeaders(),
       }).then((r) => r.json());
-      const anggaranRows = (aRes.rows || []) as Record<string, string>[];
+      const rows = (aRes.rows || []) as Record<string, string>[];
       const target =
-        anggaranRows.find((r) => matchAnggaran(r['ID ANGGARAN'])) ||
-        anggaranRows.find((r) => r.id === anggaranRowId);
+        rows.find((r) => matchAnggaran(r['ID ANGGARAN'])) ||
+        rows.find((r) => r.id === anggaranRowId);
       if (target?.id) {
         await deleteSheetRow('ANGGARAN', String(target.id));
       } else {
-        // Coba hapus dengan id awal
         await deleteSheetRow('ANGGARAN', anggaranRowId);
       }
     }
   };
 
+  /**
+   * Hapus 1 baris DETAIL ANGGARAN + SEMUA REALISASI dengan ID DETAIL yang sama.
+   */
+  const cascadeDeleteDetail = async (detailRowId: string) => {
+    const row = sheetData?.rows?.find((r) => r.id === detailRowId);
+    const idDetail = String(row?.['ID DETAIL'] || '').trim();
+
+    if (idDetail) {
+      const matchDetail = (val: string | undefined) =>
+        String(val || '').trim() === idDetail;
+
+      const rRes = await fetch('/api/admin?sheet=REALISASI', {
+        headers: getHeaders(),
+      }).then((r) => r.json());
+      const reals = sortRowIdsDesc(
+        ((rRes.rows || []) as RealisasiRow[]).filter(
+          (r) => matchDetail(r['ID DETAIL']) && r.id
+        )
+      );
+      for (const r of reals) {
+        await deleteSheetRow('REALISASI', String(r.id));
+      }
+
+      // Cari ulang detail by ID DETAIL (index bisa bergeser setelah hapus realisasi)
+      const dRes = await fetch(
+        `/api/admin?sheet=${encodeURIComponent('DETAIL ANGGARAN')}`,
+        { headers: getHeaders() }
+      ).then((r) => r.json());
+      const details = (dRes.rows || []) as DetailRow[];
+      const target =
+        details.find((d) => matchDetail(d['ID DETAIL'])) ||
+        details.find((d) => d.id === detailRowId);
+      if (target?.id) {
+        await deleteSheetRow('DETAIL ANGGARAN', String(target.id));
+        return;
+      }
+    }
+
+    await deleteSheetRow('DETAIL ANGGARAN', detailRowId);
+  };
+
+  const getDeleteConfirmMessage = (count: number) => {
+    if (activeSheet === 'ANGGARAN') {
+      return count > 1
+        ? `Hapus ${count} kegiatan terpilih?\nSemua DETAIL ANGGARAN & REALISASI terkait juga akan dihapus.`
+        : 'Hapus kegiatan ini?\nSemua DETAIL ANGGARAN & REALISASI terkait juga akan dihapus.';
+    }
+    if (activeSheet === 'DETAIL ANGGARAN') {
+      return count > 1
+        ? `Hapus ${count} detail terpilih?\nSemua REALISASI terkait (per ID DETAIL) juga akan dihapus.`
+        : 'Hapus detail ini?\nSemua REALISASI terkait juga akan dihapus.';
+    }
+    if (activeSheet === 'REALISASI') {
+      return count > 1
+        ? `Hapus ${count} realisasi terpilih?`
+        : 'Hapus realisasi ini?';
+    }
+    if (activeSheet === 'DOKUMEN' || activeSheet === 'GALERI') {
+      return count > 1
+        ? `Hapus ${count} baris terpilih? File di Drive (jika ada) juga akan dihapus.`
+        : 'Hapus baris ini? Jika ada file di Drive, file tersebut juga akan dihapus.';
+    }
+    return count > 1
+      ? `Hapus ${count} baris terpilih?`
+      : 'Hapus baris ini?';
+  };
+
   const handleDelete = async (id: string) => {
     if (deleteProgress.active) return;
 
-    const isAnggaran = activeSheet === 'ANGGARAN';
-    const msg = isAnggaran
-      ? 'Hapus kegiatan ini? Data terkait di DETAIL ANGGARAN dan REALISASI juga akan dihapus.'
-      : activeSheet === 'DOKUMEN' || activeSheet === 'GALERI'
-        ? 'Hapus baris ini? Jika ada file di Drive, file tersebut juga akan dihapus.'
-        : 'Hapus baris ini?';
-
-    if (!confirm(msg)) {
+    if (!confirm(getDeleteConfirmMessage(1))) {
       return;
     }
+
+    const isAnggaran = activeSheet === 'ANGGARAN';
+    const isDetail = activeSheet === 'DETAIL ANGGARAN';
 
     setDeleteProgress({
       active: true,
       current: 0,
       total: 1,
       label: isAnggaran
-        ? 'Menghapus anggaran + detail & realisasi terkait...'
-        : 'Menghapus data...',
+        ? 'Menghapus anggaran + semua detail & realisasi...'
+        : isDetail
+          ? 'Menghapus detail + realisasi terkait...'
+          : 'Menghapus data...',
     });
 
     try {
       if (isAnggaran) {
         await cascadeDeleteAnggaran(id);
-        setDeleteProgress((p) => ({ ...p, current: 1, label: 'Selesai menghapus...' }));
+        setDeleteProgress((p) => ({ ...p, current: 1, label: 'Selesai...' }));
         toast.success('Anggaran beserta detail & realisasi terkait berhasil dihapus');
         setSelectedIds((prev) => prev.filter((x) => x !== id));
         queryClient.invalidateQueries({ queryKey: ['admin-sheet', 'ANGGARAN'] });
         queryClient.invalidateQueries({ queryKey: ['admin-sheet', 'DETAIL ANGGARAN'] });
         queryClient.invalidateQueries({ queryKey: ['admin-sheet', 'REALISASI'] });
+        return;
+      }
+
+      if (isDetail) {
+        await cascadeDeleteDetail(id);
+        setDeleteProgress((p) => ({ ...p, current: 1, label: 'Selesai...' }));
+        toast.success('Detail beserta realisasi terkait berhasil dihapus');
+        setSelectedIds((prev) => prev.filter((x) => x !== id));
+        queryClient.invalidateQueries({ queryKey: ['admin-sheet', 'DETAIL ANGGARAN'] });
+        queryClient.invalidateQueries({ queryKey: ['admin-sheet', 'REALISASI'] });
+        queryClient.invalidateQueries({ queryKey: ['admin-sheet', 'ANGGARAN'] });
         return;
       }
 
@@ -3337,13 +4026,17 @@ export default function AdminPage() {
         label: 'Menghapus baris di Google Sheet...',
       }));
       await deleteSheetRow(activeSheet, id);
-      setDeleteProgress((p) => ({ ...p, current: 1, label: 'Selesai menghapus...' }));
+      setDeleteProgress((p) => ({ ...p, current: 1, label: 'Selesai...' }));
 
       toast.success('Data berhasil dihapus');
+      setSelectedIds((prev) => prev.filter((x) => x !== id));
 
       queryClient.invalidateQueries({
         queryKey: ['admin-sheet', activeSheet],
       });
+      if (activeSheet === 'REALISASI') {
+        queryClient.invalidateQueries({ queryKey: ['admin-sheet', 'ANGGARAN'] });
+      }
     } catch (err) {
       toast.error(
         (err as Error).message || 'Gagal menghapus'
@@ -3357,14 +4050,11 @@ export default function AdminPage() {
     if (selectedIds.length === 0 || deleteProgress.active) return;
 
     const isAnggaran = activeSheet === 'ANGGARAN';
+    const isDetail = activeSheet === 'DETAIL ANGGARAN';
+    const isRealisasi = activeSheet === 'REALISASI';
     const total = selectedIds.length;
-    const msg = isAnggaran
-      ? `Hapus ${total} kegiatan terpilih? Data terkait di DETAIL ANGGARAN dan REALISASI juga akan dihapus.`
-      : activeSheet === 'DOKUMEN' || activeSheet === 'GALERI'
-        ? `Hapus ${total} baris terpilih? File di Drive (jika ada) juga akan dihapus.`
-        : `Hapus ${total} baris terpilih?`;
 
-    if (!confirm(msg)) {
+    if (!confirm(getDeleteConfirmMessage(total))) {
       return;
     }
 
@@ -3376,7 +4066,6 @@ export default function AdminPage() {
     });
 
     try {
-      // Hapus dari id terbesar dulu (hindari geser index GSheet)
       const idsOrdered = sortRowIdsDesc(
         selectedIds.map((id) => ({ id }))
       ).map((x) => String(x.id));
@@ -3388,30 +4077,36 @@ export default function AdminPage() {
           current: done,
           total,
           label: isAnggaran
-            ? `Menghapus anggaran ${done + 1}/${total} (semua detail & realisasi)...`
-            : `Menghapus baris ${done + 1} dari ${total}...`,
+            ? `Menghapus anggaran ${done + 1}/${total} (+ detail & realisasi)...`
+            : isDetail
+              ? `Menghapus detail ${done + 1}/${total} (+ realisasi terkait)...`
+              : isRealisasi
+                ? `Menghapus realisasi ${done + 1}/${total}...`
+                : `Menghapus baris ${done + 1} dari ${total}...`,
         });
 
         if (isAnggaran) {
           await cascadeDeleteAnggaran(id);
-        } else {
-          if (activeSheet === 'DOKUMEN' || activeSheet === 'GALERI') {
-            const row = sheetData?.rows?.find((r) => r.id === id);
-            if (row) {
-              const linkHeader =
-                activeSheet === 'GALERI'
-                  ? Object.keys(row).find((k) => k.trim().toLowerCase() === 'url foto') ||
-                    'URL FOTO'
-                  : Object.keys(row).find((k) =>
-                      ['link', 'url', 'tautan'].includes(k.trim().toLowerCase())
-                    ) || 'Link';
-              const fileUrl = row[linkHeader] || '';
-              const fileId = extractDriveFileId(fileUrl);
-              if (fileId) {
-                await deleteFromDrive(fileId);
-              }
+        } else if (isDetail) {
+          await cascadeDeleteDetail(id);
+        } else if (activeSheet === 'DOKUMEN' || activeSheet === 'GALERI') {
+          const row = sheetData?.rows?.find((r) => r.id === id);
+          if (row) {
+            const linkHeader =
+              activeSheet === 'GALERI'
+                ? Object.keys(row).find((k) => k.trim().toLowerCase() === 'url foto') ||
+                  'URL FOTO'
+                : Object.keys(row).find((k) =>
+                    ['link', 'url', 'tautan'].includes(k.trim().toLowerCase())
+                  ) || 'Link';
+            const fileUrl = row[linkHeader] || '';
+            const fileId = extractDriveFileId(fileUrl);
+            if (fileId) {
+              await deleteFromDrive(fileId);
             }
           }
+          await deleteSheetRow(activeSheet, id);
+        } else {
           await deleteSheetRow(activeSheet, id);
         }
 
@@ -3426,12 +4121,15 @@ export default function AdminPage() {
 
       toast.success(
         isAnggaran
-          ? `${total} anggaran beserta detail & realisasi terkait berhasil dihapus`
-          : `${total} baris berhasil dihapus`
+          ? `${total} anggaran (+ detail & realisasi) berhasil dihapus`
+          : isDetail
+            ? `${total} detail (+ realisasi terkait) berhasil dihapus`
+            : `${total} baris berhasil dihapus`
       );
       setSelectedIds([]);
       queryClient.invalidateQueries({ queryKey: ['admin-sheet', activeSheet] });
-      if (isAnggaran) {
+      if (isAnggaran || isDetail || isRealisasi) {
+        queryClient.invalidateQueries({ queryKey: ['admin-sheet', 'ANGGARAN'] });
         queryClient.invalidateQueries({ queryKey: ['admin-sheet', 'DETAIL ANGGARAN'] });
         queryClient.invalidateQueries({ queryKey: ['admin-sheet', 'REALISASI'] });
       }
@@ -3779,28 +4477,51 @@ export default function AdminPage() {
                   onClick={handleBulkDelete}
                   disabled={deleteProgress.active}
                   className="bg-red-600 hover:bg-red-500 text-white disabled:opacity-50"
+                  title={
+                    activeSheet === 'ANGGARAN'
+                      ? 'Hapus massal + cascade DETAIL & REALISASI'
+                      : activeSheet === 'DETAIL ANGGARAN'
+                        ? 'Hapus massal + cascade REALISASI terkait'
+                        : 'Hapus massal baris terpilih'
+                  }
                 >
                   {deleteProgress.active ? (
                     <Loader2 className="w-4 h-4 mr-1 animate-spin" />
                   ) : (
                     <Trash2 className="w-4 h-4 mr-1" />
                   )}
-                  Hapus ({selectedIds.length})
+                  {activeSheet === 'ANGGARAN'
+                    ? `Hapus Massal (${selectedIds.length})`
+                    : activeSheet === 'DETAIL ANGGARAN'
+                      ? `Hapus Detail (${selectedIds.length})`
+                      : activeSheet === 'REALISASI'
+                        ? `Hapus Realisasi (${selectedIds.length})`
+                        : `Hapus (${selectedIds.length})`}
                 </Button>
               )}
 
               {activeSheet ===
               'ANGGARAN' ? (
-                <Button
-                  size="sm"
-                  onClick={() =>
-                    setShowAngForm(true)
-                  }
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white"
-                >
-                  <Plus className="w-4 h-4 mr-1" />
-                  Tambah Anggaran
-                </Button>
+                <>
+                  <Button
+                    size="sm"
+                    onClick={() => setShowAngMassal(true)}
+                    className="bg-amber-600 hover:bg-amber-500 text-white"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Input Massal
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() =>
+                      setShowAngForm(true)
+                    }
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Tambah Anggaran
+                  </Button>
+                </>
               ) : activeSheet ===
                 'ANGGARAN PERBIDANG' ? (
                 <span className="text-xs text-emerald-400">Dihitung otomatis dari Anggaran</span>
@@ -3843,16 +4564,26 @@ export default function AdminPage() {
                 </Button>
               ) : activeSheet ===
                 'REALISASI' ? (
-                <Button
-                  size="sm"
-                  onClick={() =>
-                    setShowRelForm(true)
-                  }
-                  className="bg-blue-600 hover:bg-blue-500 text-white"
-                >
-                  <ReceiptText className="w-4 h-4 mr-1" />
-                  Tambah Realisasi
-                </Button>
+                <>
+                  <Button
+                    size="sm"
+                    onClick={() => setShowRelMassal(true)}
+                    className="bg-amber-600 hover:bg-amber-500 text-white"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Input Massal
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() =>
+                      setShowRelForm(true)
+                    }
+                    className="bg-blue-600 hover:bg-blue-500 text-white"
+                  >
+                    <ReceiptText className="w-4 h-4 mr-1" />
+                    Tambah Realisasi
+                  </Button>
+                </>
               ) : activeSheet === 'JADWAL MINGGUAN' ? (
                 <Button
                   size="sm"
@@ -4295,6 +5026,22 @@ export default function AdminPage() {
           onSuccess={
             invalidateAnggaran
           }
+        />
+      )}
+
+      {showAngMassal && (
+        <FormAnggaranMassal
+          onClose={() => setShowAngMassal(false)}
+          getHeaders={getHeaders}
+          onSuccess={invalidateAnggaran}
+        />
+      )}
+
+      {showRelMassal && (
+        <FormRealisasiMassal
+          onClose={() => setShowRelMassal(false)}
+          getHeaders={getHeaders}
+          onSuccess={invalidateRealisasi}
         />
       )}
 

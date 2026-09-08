@@ -44,4 +44,4 @@ Untuk mempermudah pembaruan kode ke repositori:
 
 Bash
 # Menambah, commit, dan push perubahan sekaligus
-git add . && git commit -m "VERSI TERBARU" && git push origin main
+git add . && git commit -m "HALAMAN ADMIN SAJA" && git push origin main
