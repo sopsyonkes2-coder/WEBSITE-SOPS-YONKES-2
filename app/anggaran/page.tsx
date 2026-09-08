@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { motion } from 'framer-motion';
 
 import {
   PieChart,
@@ -24,14 +25,57 @@ import {
   valuesToObjects,
 } from '@/lib/googleSheets';
 
+function sheetField(row: Record<string, any>, ...names: string[]) {
+  for (const name of names) {
+    const entry = Object.entries(row).find(
+      ([key]) => key.trim().toLowerCase() === name.trim().toLowerCase()
+    );
+    if (entry && entry[1] !== undefined && entry[1] !== '') return entry[1];
+  }
+  return '';
+}
+
+function getMonthName(month: string) {
+  const months = ['januari', 'februari', 'maret', 'april', 'mei', 'juni', 'juli', 'agustus', 'september', 'oktober', 'november', 'desember'];
+  const normalized = month.trim().toLowerCase();
+  const numericMonth = Number(normalized);
+  const index = Number.isInteger(numericMonth) && numericMonth >= 1 && numericMonth <= 12
+    ? numericMonth - 1
+    : months.indexOf(normalized);
+  return index < 0 ? '' : months[index].charAt(0).toUpperCase() + months[index].slice(1);
+}
+
+function getQuarter(month: string) {
+  const normalizedMonth = getMonthName(month).toLowerCase();
+  const months = ['januari', 'februari', 'maret', 'april', 'mei', 'juni', 'juli', 'agustus', 'september', 'oktober', 'november', 'desember'];
+  const romanQuarters = ['I', 'II', 'III', 'IV'];
+  const index = months.indexOf(normalizedMonth);
+  return index < 0 ? '' : `TW ${romanQuarters[Math.floor(index / 3)]}`;
+}
+
+function getMonthNumber(month: string) {
+  const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+  return months.indexOf(getMonthName(month)) + 1;
+}
+
+function normalizeQuarter(value: string, month: string) {
+  const normalized = value.trim().toUpperCase().replace(/\s+/g, ' ');
+  const match = normalized.match(/^TW\s*(I{1,3}|IV|[1-4])$/);
+  if (!match) return getQuarter(month);
+  const quarterNumber = ['I', 'II', 'III', 'IV'].indexOf(match[1]) >= 0
+    ? ['I', 'II', 'III', 'IV'].indexOf(match[1])
+    : Number(match[1]) - 1;
+  return quarterNumber >= 0 && quarterNumber < 4 ? `TW ${['I', 'II', 'III', 'IV'][quarterNumber]}` : getQuarter(month);
+}
+
 const COLORS = [
-  '#16a34a',
-  '#f59e0b',
-  '#3b82f6',
-  '#ef4444',
-  '#8b5cf6',
-  '#06b6d4',
-  '#84cc16',
+  '#3b82f6', // biru
+  '#10b981', // hijau/teal
+  '#f59e0b', // orange
+  '#8b5cf6', // ungu
+  '#06b6d4', // cyan/teal
+  '#14b8a6', // teal
+  '#6366f1', // indigo
 ];
 
 function cleanCurrency(value: string) {
@@ -67,11 +111,12 @@ export default function AnggaranPage() {
       FILTER
   ==================================== */
 
-  const [tahun, setTahun] =
-    useState(new Date().getFullYear().toString());
-
   const currentYear = new Date().getFullYear().toString();
   const previousYear = (new Date().getFullYear() - 1).toString();
+
+  // Default filter tahun = tahun sekarang (otomatis mengikuti pergantian tahun)
+  const [tahun, setTahun] =
+    useState(currentYear);
 
   const [semester, setSemester] =
     useState('Semua');
@@ -104,9 +149,11 @@ export default function AnggaranPage() {
           'ANGGARAN PERBIDANG'
         );
 
-      return valuesToObjects<any>(
-        values
-      );
+      return valuesToObjects<any>(values).map((item) => ({
+        ...item,
+        Bidang: sheetField(item, 'BIDANG', 'Bidang'),
+        'Total Realisasi': sheetField(item, 'TOTAL REALISASI', 'Total Realisasi'),
+      }));
     },
   });
 
@@ -120,9 +167,13 @@ export default function AnggaranPage() {
           'ANGGARAN'
         );
 
-      return valuesToObjects<any>(
-        values
-      );
+      return valuesToObjects<any>(values).map((item) => ({
+        ...item,
+        Tahun: sheetField(item, 'TAHUN', 'Tahun'),
+        Bidang: sheetField(item, 'BIDANG', 'Bidang'),
+        Kegiatan: sheetField(item, 'NAMA KEGIATAN', 'KEGIATAN', 'Kegiatan'),
+        'Total Pagu': sheetField(item, 'TOTAL PAGU', 'Total Pagu'),
+      }));
     },
   });
 
@@ -131,14 +182,28 @@ export default function AnggaranPage() {
   } = useQuery({
     queryKey: ['detail-anggaran'],
     queryFn: async () => {
-      const values =
-        await fetchSheetData(
-          'DETAIL ANGGARAN'
-        );
-
-      return valuesToObjects<any>(
-        values
+      const [detailValues, realisasiValues] = await Promise.all([
+        fetchSheetData('DETAIL ANGGARAN'),
+        fetchSheetData('REALISASI'),
+      ]);
+      const details = valuesToObjects<any>(detailValues);
+      const detailById = new Map(
+        details.map((item) => [sheetField(item, 'ID DETAIL'), item])
       );
+      return valuesToObjects<any>(realisasiValues).map((item) => {
+        const detail = detailById.get(sheetField(item, 'ID DETAIL')) || {};
+        const bulanValue = sheetField(item, 'BULAN', 'Bulan');
+        return {
+          ...item,
+          Tahun: sheetField(item, 'TAHUN', 'Tahun'),
+          Bidang: sheetField(item, 'BIDANG', 'Bidang') || sheetField(detail, 'BIDANG', 'Bidang'),
+          Kegiatan: sheetField(item, 'KEGIATAN', 'Kegiatan') || sheetField(detail, 'KEGIATAN', 'Kegiatan'),
+          Bulan: getMonthName(bulanValue),
+          Periode: normalizeQuarter(sheetField(item, 'PERIODE', 'Periode'), bulanValue),
+          BulanKe: getMonthNumber(bulanValue),
+          'Total Realisasi': sheetField(item, 'NILAI REALISASI', 'Total Realisasi'),
+        };
+      });
     },
   });
 
@@ -149,7 +214,7 @@ export default function AnggaranPage() {
 const tahunList = [
   'Semua',
   ...new Set(
-    detail
+    kegiatan
       .map((item: any) => item.Tahun)
       .filter(Boolean)
   ),
@@ -211,17 +276,19 @@ const filteredDetail = useMemo(() => {
 
       const bulanMatch =
         bulan === 'Semua' ||
-        item.Bulan === bulan;
+        item.Bulan?.toLowerCase() === bulan.toLowerCase();
 
+      const quarterNumber = item.BulanKe > 0 ? Math.ceil(item.BulanKe / 3) : 0;
       const triwulanMatch =
         triwulan === 'Semua' ||
-        item.Periode === triwulan;
+        quarterNumber === ['TW I', 'TW II', 'TW III', 'TW IV'].indexOf(triwulan) + 1;
 
       const semesterData =
-        item.Periode === 'TW I' ||
-        item.Periode === 'TW II'
+        item.BulanKe >= 1 && item.BulanKe <= 6
           ? 'Semester I'
-          : 'Semester II';
+          : item.BulanKe >= 7 && item.BulanKe <= 12
+            ? 'Semester II'
+            : '';
 
       const semesterMatch =
         semester === 'Semua' ||
@@ -243,15 +310,23 @@ const filteredDetail = useMemo(() => {
     DATA FILTERED PAGU (Master Kegiatan)
 ==================================== */
 
-const kegiatanFiltered = kegiatan.filter((item: any) => {
-  const bidangMatch =
-    bidangFilter === 'Semua' ? true : item.Bidang === bidangFilter;
-  const kegiatanMatch =
-    kegiatanFilter === 'Semua' ? true : item.Kegiatan === kegiatanFilter;
-  const tahunMatch = tahun === 'Semua' ? true : item.Tahun === tahun;
+const kegiatanFiltered = useMemo(() => {
+  const periodFilterActive =
+    bulan !== 'Semua' || triwulan !== 'Semua' || semester !== 'Semua';
 
-  return bidangMatch && kegiatanMatch && tahunMatch;
-});
+  return kegiatan.filter((item: any) => {
+    const baseMatch =
+      (tahun === 'Semua' || item.Tahun === tahun) &&
+      (bidangFilter === 'Semua' || item.Bidang === bidangFilter) &&
+      (kegiatanFilter === 'Semua' || item.Kegiatan === kegiatanFilter);
+
+    if (!baseMatch || !periodFilterActive) return baseMatch;
+
+    return filteredDetail.some(
+      (realization: any) => realization['ID ANGGARAN'] === item['ID ANGGARAN']
+    );
+  });
+}, [kegiatan, filteredDetail, tahun, bidangFilter, kegiatanFilter, bulan, triwulan, semester]);
 
 /* ====================================
     PAGU FILTERED
@@ -284,24 +359,39 @@ const persenFiltered =
     PIE CHART
 ==================================== */
 
-const pieData = bidang
-  .filter(
-    (item: any) =>
-      item.Bidang !== 'Total'
-  )
-  .map((item: any) => ({
-    name: item.Bidang,
-    value: cleanCurrency(
-      item['Total Realisasi']
-    ),
-  }));
+const pieData = useMemo(() => {
+  const realizationByBudget = new Map<string, number>();
+  for (const item of filteredDetail) {
+    const id = item['ID ANGGARAN'];
+    if (id) {
+      realizationByBudget.set(
+        id,
+        (realizationByBudget.get(id) || 0) + cleanCurrency(item['Total Realisasi'])
+      );
+    }
+  }
+
+  const byField = new Map<string, number>();
+  for (const item of kegiatanFiltered) {
+    const name = item.Bidang;
+    if (!name) continue;
+    byField.set(
+      name,
+      (byField.get(name) || 0) + (realizationByBudget.get(item['ID ANGGARAN']) || 0)
+    );
+  }
+
+  return Array.from(byField, ([name, value]) => ({ name, value }));
+}, [filteredDetail, kegiatanFiltered]);
+
+const displayedPieData = pieData;
 
   /* ====================================
       TOP 10 PAGU
   ==================================== */
 
   const barData =
-    [...kegiatan]
+    [...kegiatanFiltered]
       .sort(
         (
           a: any,
@@ -372,7 +462,17 @@ const pieData = bidang
             0
           ),
 
-    }));
+    })).filter((item) => {
+      if (bulan !== 'Semua') return item.bulan === bulan;
+      const monthNumber = getMonthNumber(item.bulan);
+      if (semester === 'Semester I') return monthNumber <= 6;
+      if (semester === 'Semester II') return monthNumber >= 7;
+      if (triwulan !== 'Semua') {
+        const quarter = ['TW I', 'TW II', 'TW III', 'TW IV'].indexOf(triwulan) + 1;
+        return Math.ceil(monthNumber / 3) === quarter;
+      }
+      return true;
+    });
 
   /* ====================================
       REALISASI TRIWULAN
@@ -407,7 +507,12 @@ const pieData = bidang
           0
         ),
 
-  }));
+  })).filter((item) => {
+    if (triwulan !== 'Semua') return item.triwulan === triwulan;
+    if (semester === 'Semester I') return ['TW I', 'TW II'].includes(item.triwulan);
+    if (semester === 'Semester II') return ['TW III', 'TW IV'].includes(item.triwulan);
+    return true;
+  });
 
   /* ====================================
       REALISASI SEMESTER
@@ -469,17 +574,25 @@ const pieData = bidang
             0
           ),
     },
-  ];
+  ].filter((item) => {
+    if (semester !== 'Semua') return item.semester === semester;
+    if (triwulan === 'TW I' || triwulan === 'TW II') return item.semester === 'Semester I';
+    if (triwulan === 'TW III' || triwulan === 'TW IV') return item.semester === 'Semester II';
+    if (bulan !== 'Semua') return getMonthNumber(bulan) <= 6
+      ? item.semester === 'Semester I'
+      : item.semester === 'Semester II';
+    return true;
+  });
 
   /* ====================================
       TABEL DETAIL
   ==================================== */
   const detailTable = useMemo(() => {
-    const targetYear = tahun === 'Semua' ? currentYear : tahun;
+    const targetYear = tahun === 'Semua' ? '' : tahun;
 
     // Data yang sudah terealisasi (berdasarkan filter detail)
     const realizedData = filteredDetail
-      .filter((item: any) => item.Tahun === targetYear)
+      .filter((item: any) => !targetYear || item.Tahun === targetYear)
       .map((item: any) => ({
         kegiatan: item.Kegiatan,
         bidang: item.Bidang,
@@ -491,40 +604,41 @@ const pieData = bidang
 
     // Data kegiatan yang belum terealisasi di periode/filter tersebut
     // Kita saring dari master kegiatan agar sesuai dengan konteks filter yang aktif
-    const unrealizedData = kegiatan
+    const unrealizedData = kegiatanFiltered
       .filter((keg: any) => {
-        const matchYear = (keg.Tahun || targetYear) === targetYear;
-        const matchBidang = bidangFilter === 'Semua' || keg.Bidang === bidangFilter;
-        const matchKegiatan = kegiatanFilter === 'Semua' || keg.Kegiatan === kegiatanFilter;
-        // Cek apakah kegiatan ini sudah punya realisasi APAPUN di tahun ini (lintas periode)
-        const hasAnyRealizationInYear = detail.some((d: any) => d.Kegiatan === keg.Kegiatan && d.Tahun === targetYear);
-        
-        return matchYear && matchBidang && matchKegiatan && !hasAnyRealizationInYear;
+        const hasRealizationInFilter = filteredDetail.some(
+          (item: any) => item['ID ANGGARAN'] === keg['ID ANGGARAN']
+        );
+        return !hasRealizationInFilter;
       })
       .map((item: any) => ({
         kegiatan: item.Kegiatan,
         bidang: item.Bidang,
         periode: '-',
         bulan: '-',
-        tahun: item.Tahun || targetYear,
+        tahun: item.Tahun || currentYear,
         realisasi: 0,
       }));
 
     // Gabungkan dan urutkan agar yang sudah terealisasi muncul di atas
     return [...realizedData, ...unrealizedData].sort((a, b) => b.realisasi - a.realisasi);
-  }, [filteredDetail, kegiatan, detail, tahun, currentYear, bidangFilter, kegiatanFilter]);
+  }, [filteredDetail, kegiatanFiltered, tahun, currentYear]);
 
   /* ====================================
       CARD SUMMARY TAMBAHAN
   ==================================== */
 
   const jumlahKegiatan = useMemo(() => {
-    return filteredDetail.filter((item: any) => item.Kegiatan?.trim()).length;
-  }, [filteredDetail]);
+    return new Set(
+      kegiatanFiltered
+        .map((item: any) => item.Kegiatan)
+        .filter(Boolean)
+    ).size;
+  }, [kegiatanFiltered]);
 
   const jumlahBidang =
     new Set(
-      filteredDetail.map(
+      kegiatanFiltered.map(
         (item: any) =>
           item.Bidang
       )
@@ -623,9 +737,11 @@ return (
             className="bg-slate-900 border border-slate-700 rounded-xl p-3"
             value={semester}
             onChange={(e) =>
-              setSemester(
-                e.target.value
-              )
+              (() => {
+                setSemester(e.target.value);
+                setTriwulan('Semua');
+                setBulan('Semua');
+              })()
             }
           >
             <option value="Semua">Semester</option>
@@ -638,9 +754,11 @@ return (
             className="bg-slate-900 border border-slate-700 rounded-xl p-3"
             value={triwulan}
             onChange={(e) =>
-              setTriwulan(
-                e.target.value
-              )
+              (() => {
+                setTriwulan(e.target.value);
+                setSemester('Semua');
+                setBulan('Semua');
+              })()
             }
           >
             <option value="Semua">Triwulan</option>
@@ -655,9 +773,11 @@ return (
             className="bg-slate-900 border border-slate-700 rounded-xl p-3"
             value={bulan}
             onChange={(e) =>
-              setBulan(
-                e.target.value
-              )
+              (() => {
+                setBulan(e.target.value);
+                setSemester('Semua');
+                setTriwulan('Semua');
+              })()
             }
           >
             <option value="Semua">Bulan</option>
@@ -723,7 +843,13 @@ return (
 
       <div className="grid xl:grid-cols-4 md:grid-cols-2 gap-6 mb-10">
 
-        <div className="glass rounded-3xl p-6">
+        <motion.div
+          className="glass rounded-3xl p-6"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.4 }}
+        >
           <div className="text-slate-400">
             Total Pagu
           </div>
@@ -733,9 +859,15 @@ return (
               totalPaguFiltered
             )}
           </div>
-        </div>
+        </motion.div>
 
-        <div className="glass rounded-3xl p-6">
+        <motion.div
+          className="glass rounded-3xl p-6"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.4, delay: 0.05 }}
+        >
           <div className="text-slate-400">
             Total Realisasi
           </div>
@@ -745,9 +877,15 @@ return (
               totalRealisasi
             )}
           </div>
-        </div>
+        </motion.div>
 
-        <div className="glass rounded-3xl p-6">
+        <motion.div
+          className="glass rounded-3xl p-6"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.4, delay: 0.1 }}
+        >
           <div className="text-slate-400">
             Sisa Anggaran
           </div>
@@ -757,9 +895,15 @@ return (
               totalSisaFiltered
             )}
           </div>
-        </div>
+        </motion.div>
 
-        <div className="glass rounded-3xl p-6">
+        <motion.div
+          className="glass rounded-3xl p-6"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.4, delay: 0.15 }}
+        >
           <div className="text-slate-400">
             Serapan
           </div>
@@ -767,13 +911,19 @@ return (
           <div className="text-2xl font-bold text-red-400 mt-2">
             {persenFiltered}%
           </div>
-        </div>
+        </motion.div>
 
       </div>
 
       <div className="grid xl:grid-cols-3 md:grid-cols-3 gap-6 mb-10">
 
-        <div className="glass rounded-3xl p-6">
+        <motion.div
+          className="glass rounded-3xl p-6"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.4 }}
+        >
           <div className="text-slate-400">
             Jumlah Kegiatan
           </div>
@@ -781,9 +931,15 @@ return (
           <div className="text-2xl font-bold text-cyan-400 mt-2">
             {jumlahKegiatan}
           </div>
-        </div>
+        </motion.div>
 
-        <div className="glass rounded-3xl p-6">
+        <motion.div
+          className="glass rounded-3xl p-6"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.4, delay: 0.05 }}
+        >
           <div className="text-slate-400">
             Jumlah Bidang
           </div>
@@ -791,9 +947,15 @@ return (
           <div className="text-2xl font-bold text-violet-400 mt-2">
             {jumlahBidang}
           </div>
-        </div>
+        </motion.div>
 
-        <div className="glass rounded-3xl p-6">
+        <motion.div
+          className="glass rounded-3xl p-6"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.4, delay: 0.1 }}
+        >
           <div className="text-slate-400">
             Bulan Tertinggi
           </div>
@@ -810,7 +972,7 @@ return (
             )}
           </div>
 
-        </div>
+        </motion.div>
 
       </div>
 
@@ -832,14 +994,14 @@ return (
             <PieChart>
 
               <Pie
-                data={pieData}
+                data={displayedPieData}
                 dataKey="value"
                 nameKey="name"
                 outerRadius={120}
-                label
+                label={({ name, value }) => `${name}: ${formatRupiah(Number(value))}`}
               >
 
-                {pieData.map(
+                {displayedPieData.map(
                   (
                     _,
                     index
@@ -921,7 +1083,7 @@ return (
 
               <Bar
                 dataKey="pagu"
-                fill="#16a34a"
+                fill="#10b981"
                 radius={[
                   8,
                   8,

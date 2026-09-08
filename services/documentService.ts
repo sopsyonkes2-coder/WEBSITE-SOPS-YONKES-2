@@ -1,7 +1,7 @@
 export const getDocuments = async () => {
   const SPREADSHEET_ID = process.env.NEXT_PUBLIC_GOOGLE_SHEET_ID;
   const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_SHEETS_API_KEY;
-  const RANGE = 'Sheet1!A:Z'; // Sesuaikan nama sheet Anda
+  const RANGE = 'DOKUMEN!A:Z';
 
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${RANGE}?key=${API_KEY}`;
 

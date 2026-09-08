@@ -55,18 +55,17 @@ export default function ProfilPage() {
   const { data: kekuatan } = useQuery<any>({
     queryKey: ['ket-pers'],
     queryFn: async () => {
-      const [values, orgValues] = await Promise.all([
+      const [values] = await Promise.all([
         fetchSheetData('KET PERS'),
-        fetchSheetData('ORGANISASI'),
       ]);
 
       if (!values || values.length < 2) return null;
       
       return {
         totals: {
-          top: orgValues?.[1]?.[0] || 0,    // ORGANISASI A2
-          nyata: orgValues?.[1]?.[1] || 0,  // ORGANISASI B2
-          kurang: orgValues?.[1]?.[2] || 0, // ORGANISASI C2
+          top: values.slice(1).reduce((sum: number, row: unknown[]) => sum + Number(row?.[1] || 0), 0),
+          nyata: values.slice(1).reduce((sum: number, row: unknown[]) => sum + Number(row?.[2] || 0), 0),
+          kurang: values.slice(1).reduce((sum: number, row: unknown[]) => sum + Number(row?.[3] || 0), 0),
         },
         PA: { top: values[1]?.[1] || 0, nyata: values[1]?.[2] || 0, kurang: values[1]?.[3] || 0 }, // KET PERS Row 2 (A2)
         BA: { top: values[2]?.[1] || 0, nyata: values[2]?.[2] || 0, kurang: values[2]?.[3] || 0 }, // KET PERS Row 3 (A3)

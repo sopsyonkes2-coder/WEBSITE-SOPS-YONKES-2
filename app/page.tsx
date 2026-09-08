@@ -39,6 +39,7 @@ import {
 
 import StatsGrid from '@/components/dashboard/StatsGrid';
 import BaganAlarmModal from '@/components/BaganAlarmModal';
+import { getAnggaranSummary } from '@/lib/anggaranSummary';
 
 // Komponen baru untuk Jam Digital dan Salam
 const DigitalClock = () => {
@@ -222,21 +223,6 @@ const MotivationWidget = () => {
   );
 };
 
-function cleanCurrency(value: string) {
-  if (!value) return 0;
-
-  return (
-    Number(
-      value
-        .toString()
-        .replace(/Rp/g, '')
-        .replace(/\./g, '')
-        .replace(/,/g, '')
-        .replace(/\s/g, '')
-    ) || 0
-  );
-}
-
 function formatRupiah(value: number) {
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
@@ -252,11 +238,11 @@ function normalizeRemoteMediaUrl(rawValue: unknown) {
   try {
     const idMatch = value.match(/(?:\/d\/|[?&]id=)([a-zA-Z0-9_-]{10,})/);
     if (idMatch?.[1]) {
-      return `https://drive.google.com/uc?export=download&id=${idMatch[1]}`;
+      return `https://drive.google.com/thumbnail?id=${idMatch[1]}&sz=w1200`;
     }
 
     const ucMatch = value.match(/https?:\/\/drive\.google\.com\/uc\?id=([a-zA-Z0-9_-]{10,})/);
-    if (ucMatch?.[1]) return `https://drive.google.com/uc?export=download&id=${ucMatch[1]}`;
+    if (ucMatch?.[1]) return `https://drive.google.com/thumbnail?id=${ucMatch[1]}&sz=w1200`;
 
     return value.split('?')[0];
   } catch (e) {
@@ -269,12 +255,22 @@ function isVideoUrl(url: string) {
 }
 
 export default function Home() {
-  const { data: anggaran = [] } =
+  const currentYear = useMemo(() => new Date().getFullYear().toString(), []);
+
+  const { data: anggaranSummary = { totalPagu: 0, totalRealisasi: 0, totalSisa: 0 } } =
     useQuery({
-      queryKey: ['home-anggaran'],
+      queryKey: ['anggaran-summary', currentYear],
       queryFn: async () => {
-        const values = await fetchSheetData('ANGGARAN');
-        return valuesToObjects<any>(values);
+        const [anggaranValues, realisasiValues] = await Promise.all([
+          fetchSheetData('ANGGARAN'),
+          fetchSheetData('REALISASI'),
+        ]);
+
+        return getAnggaranSummary(
+          valuesToObjects<any>(anggaranValues),
+          valuesToObjects<any>(realisasiValues),
+          currentYear
+        );
       },
     });
 
@@ -287,8 +283,6 @@ export default function Home() {
         return res.json();
       },
     });
-
-  const currentYear = useMemo(() => new Date().getFullYear().toString(), []);
 
   type ReviewItem = {
     id?: string;
@@ -430,35 +424,7 @@ export default function Home() {
   };
 
 
-  const totalPagu = useMemo(() => {
-    return anggaran.reduce(
-      (
-        acc: number,
-        item: any
-      ) =>
-        item.Tahun?.toString().trim() !== currentYear
-          ? acc
-          : acc + cleanCurrency(item['Total Pagu']),
-      0
-    );
-  }, [anggaran, currentYear]);
-
-  const totalRealisasi =
-    useMemo(() => {
-      return anggaran.reduce(
-        (
-          acc: number,
-          item: any
-        ) =>
-          item.Tahun?.toString().trim() !== currentYear
-            ? acc
-            : acc + cleanCurrency(item['Total Realisasi']),
-        0
-      );
-    }, [anggaran, currentYear]);
-
-  const totalSisa =
-    totalPagu - totalRealisasi;
+  const { totalPagu, totalRealisasi, totalSisa } = anggaranSummary;
 
   return (
     <div className="min-h-screen military-gradient overflow-hidden">
@@ -573,7 +539,13 @@ export default function Home() {
 
         <div className="grid md:grid-cols-3 gap-8">
 
-          <div className="glass rounded-3xl p-8 text-center">
+          <motion.div
+            className="glass rounded-3xl p-8 text-center"
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ duration: 0.45 }}
+          >
 
             <div className="flex justify-center mb-5">
               <Wallet className="w-14 h-14 text-emerald-400" />
@@ -587,9 +559,15 @@ export default function Home() {
               {formatRupiah(totalPagu)}
             </div>
 
-          </div>
+          </motion.div>
 
-          <div className="glass rounded-3xl p-8 text-center">
+          <motion.div
+            className="glass rounded-3xl p-8 text-center"
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ duration: 0.45, delay: 0.08 }}
+          >
 
             <div className="flex justify-center mb-5">
               <BadgeDollarSign className="w-14 h-14 text-blue-400" />
@@ -605,9 +583,15 @@ export default function Home() {
               )}
             </div>
 
-          </div>
+          </motion.div>
 
-          <div className="glass rounded-3xl p-8 text-center">
+          <motion.div
+            className="glass rounded-3xl p-8 text-center"
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ duration: 0.45, delay: 0.16 }}
+          >
 
             <div className="flex justify-center mb-5">
               <Coins className="w-14 h-14 text-amber-400" />
@@ -621,7 +605,7 @@ export default function Home() {
               {formatRupiah(totalSisa)}
             </div>
 
-          </div>
+          </motion.div>
 
         </div>
 

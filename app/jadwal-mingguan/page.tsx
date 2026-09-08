@@ -79,12 +79,12 @@ export default function JadwalMingguanPage() {
 
     return {
       week1: {
-        title: `Hari ${headers[2] || '?'} s.d ${headers[8] || '?'}`,
+        title: `TANGGAL ${headers[2] || '?'} s.d ${headers[8] || '?'}`,
         headers: [headers[0], headers[1], ...[2, 3, 4, 5, 6, 7, 8].map(i => headers[i])],
         ...week1
       },
       week2: {
-        title: `Hari ${headers[10] || '?'} s.d ${headers[16] || '?'}`,
+        title: `TANGGAL ${headers[10] || '?'} s.d ${headers[16] || '?'}`,
         headers: [headers[0], headers[1], ...[10, 11, 12, 13, 14, 15, 16].map(i => headers[i])],
         ...week2
       },

@@ -8,7 +8,7 @@ import { useState, useEffect } from 'react';
 
 import Link from 'next/link';
 
-import { Menu, X, Home, Users, FileText, Calendar, Clock, DollarSign, ShieldAlert, Key } from 'lucide-react';
+import { Menu, X, Home, Users, FileText, Calendar, Clock, DollarSign, ShieldAlert, Key, Sun, Moon } from 'lucide-react';
 
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -44,7 +44,23 @@ export default function Header() {
 
   const [lastScrollY, setLastScrollY] = useState(0);
 
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
 
+  useEffect(() => {
+    const saved = (typeof window !== 'undefined' && localStorage.getItem('yonkes-theme')) as 'dark' | 'light' | null;
+    const initial = saved === 'light' || saved === 'dark' ? saved : 'dark';
+    setTheme(initial);
+    document.documentElement.classList.toggle('light', initial === 'light');
+    document.documentElement.classList.toggle('dark', initial === 'dark');
+  }, []);
+
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    localStorage.setItem('yonkes-theme', next);
+    document.documentElement.classList.toggle('light', next === 'light');
+    document.documentElement.classList.toggle('dark', next === 'dark');
+  };
 
   useEffect(() => {
 
@@ -142,6 +158,15 @@ export default function Header() {
 
           ))}
 
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="ml-2 p-2 rounded-xl border border-slate-700 bg-slate-800/50 text-slate-300 hover:text-amber-400 transition-all"
+            title={theme === 'dark' ? 'Tema terang' : 'Tema gelap'}
+          >
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+
         </nav>
 
 
@@ -205,6 +230,15 @@ export default function Header() {
                 </Link>
 
               ))}
+
+              <button
+                type="button"
+                onClick={() => { toggleTheme(); setIsOpen(false); }}
+                className="flex items-center gap-3 text-slate-300 hover:text-amber-400 mt-2"
+              >
+                {theme === 'dark' ? <Sun size={24} /> : <Moon size={24} />}
+                {theme === 'dark' ? 'Tema Terang' : 'Tema Gelap'}
+              </button>
 
             </div>
 

@@ -14,8 +14,8 @@ type ReviewItem = {
   quote: string;
 };
 
-const ADMIN_PASSWORD = 'COBRALINUD02';
 const ADMIN_STORAGE_KEY = 'yonkes-admin-authenticated';
+const ADMIN_PASSWORD_KEY = 'yonkes-admin-password';
 
 export default function AdminSecretPage() {
   const [password, setPassword] = useState('');
@@ -25,8 +25,20 @@ export default function AdminSecretPage() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    const saved = typeof window !== 'undefined' ? window.localStorage.getItem(ADMIN_STORAGE_KEY) : null;
-    setAuthenticated(saved === 'true');
+    const savedPassword = typeof window !== 'undefined' ? window.localStorage.getItem(ADMIN_PASSWORD_KEY) : null;
+    if (!savedPassword) return;
+    fetch('/api/admin?action=verify', { headers: { 'x-admin-password': savedPassword } })
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.valid) {
+          setAuthenticated(true);
+          setPassword(savedPassword);
+        } else {
+          localStorage.removeItem(ADMIN_STORAGE_KEY);
+          localStorage.removeItem(ADMIN_PASSWORD_KEY);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const {
@@ -42,10 +54,15 @@ export default function AdminSecretPage() {
     enabled: authenticated,
   });
 
-  const handleLogin = (event: FormEvent<HTMLFormElement>) => {
+  const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (password === ADMIN_PASSWORD) {
+    const response = await fetch('/api/admin?action=verify', {
+      headers: { 'x-admin-password': password },
+    });
+    const data = await response.json();
+    if (data.valid) {
       window.localStorage.setItem(ADMIN_STORAGE_KEY, 'true');
+      window.localStorage.setItem(ADMIN_PASSWORD_KEY, password);
       setAuthenticated(true);
       setAuthError('');
       toast.success('Anda berhasil masuk sebagai admin.');
@@ -57,6 +74,7 @@ export default function AdminSecretPage() {
 
   const handleLogout = () => {
     window.localStorage.removeItem(ADMIN_STORAGE_KEY);
+    window.localStorage.removeItem(ADMIN_PASSWORD_KEY);
     setAuthenticated(false);
     setPassword('');
     toast.success('Admin logout berhasil.');
@@ -68,6 +86,7 @@ export default function AdminSecretPage() {
     try {
       const res = await fetch(`/api/reviews?id=${encodeURIComponent(id)}`, {
         method: 'DELETE',
+        headers: { 'x-admin-password': password },
       });
 
       const data = await res.json();
@@ -83,7 +102,7 @@ export default function AdminSecretPage() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 py-16 px-4 sm:px-6 w-full">
+    <main className="min-h-screen military-gradient text-slate-100 py-16 px-4 sm:px-6 w-full">
       <div className="w-full px-0">
         <Link href="/" className="inline-flex items-center gap-2 text-slate-300 hover:text-white mb-8">
           <ArrowLeft className="h-4 w-4" /> Kembali ke Beranda

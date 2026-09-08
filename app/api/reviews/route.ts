@@ -3,6 +3,7 @@ import {
   getReviewsFromSheet,
   appendReviewToSheet,
   deleteReviewFromSheet,
+  verifyAdminPassword,
 } from '@/lib/googleSheetsServer';
 
 export const dynamic = 'force-dynamic';
@@ -56,6 +57,11 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
+    const password = req.headers.get('x-admin-password') || '';
+    if (!(await verifyAdminPassword(password))) {
+      return NextResponse.json({ error: 'Akses admin diperlukan.' }, { status: 401 });
+    }
+
     const url = new URL(req.url);
     const id = url.searchParams.get('id');
 

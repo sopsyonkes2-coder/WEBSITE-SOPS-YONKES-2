@@ -3,8 +3,9 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Search, ExternalLink, Filter, Loader2 } from 'lucide-react';
+import { Search, ExternalLink, Filter, Loader2, Eye } from 'lucide-react';
 import { fetchSheetData, valuesToObjects } from '@/lib/googleSheets';
+import { getDrivePreviewUrl } from '@/lib/driveUpload';
 
 export default function DokumenPage() {
   const [search, setSearch] = useState('');
@@ -112,8 +113,14 @@ export default function DokumenPage() {
                         <td className="px-6 py-4 text-white font-medium">{item.Judul}</td>
                         <td className="px-6 py-4 text-slate-400 text-sm">{item.Tipe || '-'}</td>
                         <td className="px-6 py-4 text-center">
-                          <a href={item.Link} target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:text-emerald-300">
-                            <ExternalLink size={20} className="inline" />
+                          <a
+                            href={getDrivePreviewUrl(item.Link)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-emerald-400 hover:text-emerald-300 inline-flex items-center"
+                            title="Lihat PDF di Google Drive"
+                          >
+                            <Eye size={20} className="inline" />
                           </a>
                         </td>
                       </tr>
