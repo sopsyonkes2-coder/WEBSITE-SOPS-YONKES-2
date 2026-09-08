@@ -2489,11 +2489,27 @@ export default function AdminPage() {
   const [showKekuatanPersonelForm, setShowKekuatanPersonelForm] =
     useState(false);
 
+  /** Multi-select hapus */
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  /** Progress hapus (single / bulk) */
+  const [deleteProgress, setDeleteProgress] = useState<{
+    active: boolean;
+    current: number;
+    total: number;
+    label: string;
+  }>({ active: false, current: 0, total: 0, label: '' });
+
   const queryClient =
     useQueryClient();
 
   // Ref for table scroll container
   const tableScrollRef = useRef<HTMLDivElement>(null);
+
+  // Reset selection saat ganti sheet
+  useEffect(() => {
+    setSelectedIds([]);
+  }, [activeSheet]);
 
   // ────────────────────────────────────────
   // AUTH
@@ -3157,16 +3173,134 @@ export default function AdminPage() {
   // DELETE
   // ────────────────────────────────────────
 
-  const handleDelete = async (id: string) => {
-    if (
-      !confirm(
-        'Hapus baris ini? Jika ada file di Drive (Dokumen/Galeri), file tersebut juga akan dihapus.'
-      )
-    ) {
+  const deleteSheetRow = async (sheet: string, rowId: string) => {
+    const res = await fetch(
+      `/api/admin?sheet=${encodeURIComponent(sheet)}&id=${encodeURIComponent(rowId)}`,
+      {
+        method: 'DELETE',
+        headers: getHeaders(),
+      }
+    );
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.error || `Gagal menghapus baris di ${sheet}`);
+    }
+  };
+
+  /** Urutkan id baris dari terbesar → terkecil agar hapus di GSheet tidak geser index */
+  const sortRowIdsDesc = <T extends { id?: string }>(rows: T[]): T[] =>
+    [...rows].sort((a, b) => {
+      const na = Number(a.id);
+      const nb = Number(b.id);
+      if (Number.isFinite(na) && Number.isFinite(nb)) return nb - na;
+      return String(b.id || '').localeCompare(String(a.id || ''), undefined, {
+        numeric: true,
+      });
+    });
+
+  /**
+   * Hapus SEMUA baris DETAIL ANGGARAN + REALISASI yang ID ANGGARAN-nya sama,
+   * lalu hapus baris ANGGARAN-nya.
+   * - Selalu fetch data segar (bukan cache)
+   * - Hapus dari id/index terbesar dulu (hindari geser baris GSheet)
+   */
+  const cascadeDeleteAnggaran = async (anggaranRowId: string) => {
+    const row = sheetData?.rows?.find((r) => r.id === anggaranRowId);
+    const idAnggaran = String(row?.['ID ANGGARAN'] || '').trim();
+
+    if (!idAnggaran) {
+      // Fallback: hapus baris anggaran saja
+      await deleteSheetRow('ANGGARAN', anggaranRowId);
       return;
     }
 
+    const matchAnggaran = (val: string | undefined) =>
+      String(val || '').trim() === idAnggaran;
+
+    // 1) REALISASI — fetch segar, hapus semua yang cocok (index besar → kecil)
+    {
+      const rRes = await fetch('/api/admin?sheet=REALISASI', {
+        headers: getHeaders(),
+      }).then((r) => r.json());
+      const reals = sortRowIdsDesc(
+        ((rRes.rows || []) as RealisasiRow[]).filter(
+          (r) => matchAnggaran(r['ID ANGGARAN']) && r.id
+        )
+      );
+      for (const r of reals) {
+        await deleteSheetRow('REALISASI', String(r.id));
+      }
+    }
+
+    // 2) DETAIL ANGGARAN — fetch segar lagi, hapus SEMUA pelaksanaan terkait
+    {
+      const dRes = await fetch(
+        `/api/admin?sheet=${encodeURIComponent('DETAIL ANGGARAN')}`,
+        { headers: getHeaders() }
+      ).then((r) => r.json());
+      const details = sortRowIdsDesc(
+        ((dRes.rows || []) as DetailRow[]).filter(
+          (d) => matchAnggaran(d['ID ANGGARAN']) && d.id
+        )
+      );
+      for (const d of details) {
+        await deleteSheetRow('DETAIL ANGGARAN', String(d.id));
+      }
+    }
+
+    // 3) ANGGARAN — cari ulang baris by ID ANGGARAN (id baris bisa berubah setelah hapus lain)
+    {
+      const aRes = await fetch('/api/admin?sheet=ANGGARAN', {
+        headers: getHeaders(),
+      }).then((r) => r.json());
+      const anggaranRows = (aRes.rows || []) as Record<string, string>[];
+      const target =
+        anggaranRows.find((r) => matchAnggaran(r['ID ANGGARAN'])) ||
+        anggaranRows.find((r) => r.id === anggaranRowId);
+      if (target?.id) {
+        await deleteSheetRow('ANGGARAN', String(target.id));
+      } else {
+        // Coba hapus dengan id awal
+        await deleteSheetRow('ANGGARAN', anggaranRowId);
+      }
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (deleteProgress.active) return;
+
+    const isAnggaran = activeSheet === 'ANGGARAN';
+    const msg = isAnggaran
+      ? 'Hapus kegiatan ini? Data terkait di DETAIL ANGGARAN dan REALISASI juga akan dihapus.'
+      : activeSheet === 'DOKUMEN' || activeSheet === 'GALERI'
+        ? 'Hapus baris ini? Jika ada file di Drive, file tersebut juga akan dihapus.'
+        : 'Hapus baris ini?';
+
+    if (!confirm(msg)) {
+      return;
+    }
+
+    setDeleteProgress({
+      active: true,
+      current: 0,
+      total: 1,
+      label: isAnggaran
+        ? 'Menghapus anggaran + detail & realisasi terkait...'
+        : 'Menghapus data...',
+    });
+
     try {
+      if (isAnggaran) {
+        await cascadeDeleteAnggaran(id);
+        setDeleteProgress((p) => ({ ...p, current: 1, label: 'Selesai menghapus...' }));
+        toast.success('Anggaran beserta detail & realisasi terkait berhasil dihapus');
+        setSelectedIds((prev) => prev.filter((x) => x !== id));
+        queryClient.invalidateQueries({ queryKey: ['admin-sheet', 'ANGGARAN'] });
+        queryClient.invalidateQueries({ queryKey: ['admin-sheet', 'DETAIL ANGGARAN'] });
+        queryClient.invalidateQueries({ queryKey: ['admin-sheet', 'REALISASI'] });
+        return;
+      }
+
       if (activeSheet === 'DOKUMEN' || activeSheet === 'GALERI') {
         const row = sheetData?.rows?.find((r) => r.id === id);
         if (row) {
@@ -3182,6 +3316,10 @@ export default function AdminPage() {
           const fileId = extractDriveFileId(fileUrl);
 
           if (fileId) {
+            setDeleteProgress((p) => ({
+              ...p,
+              label: 'Menghapus file di Google Drive...',
+            }));
             const driveResult = await deleteFromDrive(fileId);
             if (!driveResult.success) {
               console.warn('Gagal hapus Drive:', driveResult.error);
@@ -3194,40 +3332,127 @@ export default function AdminPage() {
         }
       }
 
-      const res = await fetch(
-        `/api/admin?sheet=${encodeURIComponent(
-          activeSheet
-        )}&id=${encodeURIComponent(
-          id
-        )}`,
-        {
-          method: 'DELETE',
-          headers: getHeaders(),
-        }
-      );
-
-      const json = await res.json();
-
-      if (!res.ok) {
-        throw new Error(json.error);
-      }
+      setDeleteProgress((p) => ({
+        ...p,
+        label: 'Menghapus baris di Google Sheet...',
+      }));
+      await deleteSheetRow(activeSheet, id);
+      setDeleteProgress((p) => ({ ...p, current: 1, label: 'Selesai menghapus...' }));
 
       toast.success('Data berhasil dihapus');
 
       queryClient.invalidateQueries({
         queryKey: ['admin-sheet', activeSheet],
       });
-
-      if (activeSheet === 'DETAIL ANGGARAN') {
-        queryClient.invalidateQueries({
-          queryKey: ['admin-sheet', 'ANGGARAN'],
-        });
-      }
     } catch (err) {
       toast.error(
         (err as Error).message || 'Gagal menghapus'
       );
+    } finally {
+      setDeleteProgress({ active: false, current: 0, total: 0, label: '' });
     }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0 || deleteProgress.active) return;
+
+    const isAnggaran = activeSheet === 'ANGGARAN';
+    const total = selectedIds.length;
+    const msg = isAnggaran
+      ? `Hapus ${total} kegiatan terpilih? Data terkait di DETAIL ANGGARAN dan REALISASI juga akan dihapus.`
+      : activeSheet === 'DOKUMEN' || activeSheet === 'GALERI'
+        ? `Hapus ${total} baris terpilih? File di Drive (jika ada) juga akan dihapus.`
+        : `Hapus ${total} baris terpilih?`;
+
+    if (!confirm(msg)) {
+      return;
+    }
+
+    setDeleteProgress({
+      active: true,
+      current: 0,
+      total,
+      label: `Menghapus 0 dari ${total}...`,
+    });
+
+    try {
+      // Hapus dari id terbesar dulu (hindari geser index GSheet)
+      const idsOrdered = sortRowIdsDesc(
+        selectedIds.map((id) => ({ id }))
+      ).map((x) => String(x.id));
+
+      let done = 0;
+      for (const id of idsOrdered) {
+        setDeleteProgress({
+          active: true,
+          current: done,
+          total,
+          label: isAnggaran
+            ? `Menghapus anggaran ${done + 1}/${total} (semua detail & realisasi)...`
+            : `Menghapus baris ${done + 1} dari ${total}...`,
+        });
+
+        if (isAnggaran) {
+          await cascadeDeleteAnggaran(id);
+        } else {
+          if (activeSheet === 'DOKUMEN' || activeSheet === 'GALERI') {
+            const row = sheetData?.rows?.find((r) => r.id === id);
+            if (row) {
+              const linkHeader =
+                activeSheet === 'GALERI'
+                  ? Object.keys(row).find((k) => k.trim().toLowerCase() === 'url foto') ||
+                    'URL FOTO'
+                  : Object.keys(row).find((k) =>
+                      ['link', 'url', 'tautan'].includes(k.trim().toLowerCase())
+                    ) || 'Link';
+              const fileUrl = row[linkHeader] || '';
+              const fileId = extractDriveFileId(fileUrl);
+              if (fileId) {
+                await deleteFromDrive(fileId);
+              }
+            }
+          }
+          await deleteSheetRow(activeSheet, id);
+        }
+
+        done += 1;
+        setDeleteProgress({
+          active: true,
+          current: done,
+          total,
+          label: `Terhapus ${done} dari ${total} (${Math.round((done / total) * 100)}%)`,
+        });
+      }
+
+      toast.success(
+        isAnggaran
+          ? `${total} anggaran beserta detail & realisasi terkait berhasil dihapus`
+          : `${total} baris berhasil dihapus`
+      );
+      setSelectedIds([]);
+      queryClient.invalidateQueries({ queryKey: ['admin-sheet', activeSheet] });
+      if (isAnggaran) {
+        queryClient.invalidateQueries({ queryKey: ['admin-sheet', 'DETAIL ANGGARAN'] });
+        queryClient.invalidateQueries({ queryKey: ['admin-sheet', 'REALISASI'] });
+      }
+    } catch (err) {
+      toast.error((err as Error).message || 'Gagal menghapus massal');
+    } finally {
+      setDeleteProgress({ active: false, current: 0, total: 0, label: '' });
+    }
+  };
+
+  const toggleSelectId = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAllVisible = () => {
+    const ids = visibleRows.map((r) => r.id).filter(Boolean);
+    const allSelected =
+      ids.length > 0 && ids.every((id) => selectedIds.includes(id));
+    setSelectedIds(allSelected ? [] : ids);
   };
 
 
@@ -3405,8 +3630,53 @@ export default function AdminPage() {
   // ADMIN
   // ────────────────────────────────────────
 
+  const deletePercent =
+    deleteProgress.total > 0
+      ? Math.min(
+          100,
+          Math.round((deleteProgress.current / deleteProgress.total) * 100)
+        )
+      : 0;
+
   return (
     <main className="min-h-screen military-gradient text-slate-100 pt-24 pb-16 px-4 sm:px-6">
+      {/* Overlay progress hapus */}
+      {deleteProgress.active && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-slate-950 p-6 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <Loader2 className="w-6 h-6 animate-spin text-red-400 flex-shrink-0" />
+              <div>
+                <p className="font-bold text-white">Sedang menghapus...</p>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Jangan tutup halaman sampai selesai
+                </p>
+              </div>
+            </div>
+
+            <p className="text-sm text-slate-300 mb-3 min-h-[1.25rem]">
+              {deleteProgress.label}
+            </p>
+
+            <div className="h-3 rounded-full bg-slate-800 overflow-hidden border border-white/5">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-red-600 to-red-400 transition-all duration-300 ease-out"
+                style={{ width: `${deletePercent}%` }}
+              />
+            </div>
+
+            <div className="flex items-center justify-between mt-2 text-xs">
+              <span className="text-slate-500">
+                {deleteProgress.current} / {deleteProgress.total}
+              </span>
+              <span className="font-bold text-red-300 tabular-nums">
+                {deletePercent}%
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="w-full">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
@@ -3500,6 +3770,24 @@ export default function AdminPage() {
                   }`}
                 />
               </Button>
+
+              {selectedIds.length > 0 &&
+                activeSheet !== 'ANGGARAN PERBIDANG' &&
+                activeSheet !== 'KET PERS' && (
+                <Button
+                  size="sm"
+                  onClick={handleBulkDelete}
+                  disabled={deleteProgress.active}
+                  className="bg-red-600 hover:bg-red-500 text-white disabled:opacity-50"
+                >
+                  {deleteProgress.active ? (
+                    <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4 mr-1" />
+                  )}
+                  Hapus ({selectedIds.length})
+                </Button>
+              )}
 
               {activeSheet ===
               'ANGGARAN' ? (
@@ -3703,6 +3991,20 @@ export default function AdminPage() {
               <table className="w-full text-sm">
                 <thead className="sticky top-0 z-10 bg-slate-950">
                   <tr className="border-b border-white/10 text-left">
+                    {activeSheet !== 'ANGGARAN PERBIDANG' && activeSheet !== 'KET PERS' && (
+                      <th className="px-3 py-3 w-10 bg-slate-950">
+                        <input
+                          type="checkbox"
+                          checked={
+                            visibleRows.length > 0 &&
+                            visibleRows.every((r) => selectedIds.includes(r.id))
+                          }
+                          onChange={toggleSelectAllVisible}
+                          className="rounded border-white/20 bg-slate-900 text-emerald-500 focus:ring-emerald-500/40"
+                          title="Pilih semua"
+                        />
+                      </th>
+                    )}
                     {visibleHeaders
                       .filter((h, hi) => {
                         if (activeSheet === 'ORGANISASI')
@@ -3774,6 +4076,16 @@ export default function AdminPage() {
                           key={row.id}
                           className="border-b border-white/5 hover:bg-white/[0.02]"
                         >
+                          {activeSheet !== 'ANGGARAN PERBIDANG' && activeSheet !== 'KET PERS' && (
+                            <td className="px-3 py-3">
+                              <input
+                                type="checkbox"
+                                checked={selectedIds.includes(row.id)}
+                                onChange={() => toggleSelectId(row.id)}
+                                className="rounded border-white/20 bg-slate-900 text-emerald-500 focus:ring-emerald-500/40"
+                              />
+                            </td>
+                          )}
                           {visibleHeaders
                             .filter((h, hi) => {
                               if (activeSheet === 'ORGANISASI')
@@ -3832,33 +4144,26 @@ export default function AdminPage() {
                             </>
                           )}
 
-                          {activeSheet !== 'ANGGARAN PERBIDANG' && activeSheet !== 'KET PERS' && <td className="px-4 py-3">
-                            <div className="flex gap-1">
-                              <button
-                                onClick={() =>
-                                  openEdit(
-                                    row
-                                  )
-                                }
-                                className="p-1.5 rounded-lg hover:bg-blue-500/20 text-blue-400 transition-colors"
-                                title="Edit"
-                              >
-                                <Pencil className="w-4 h-4" />
-                              </button>
-
-                              <button
-                                onClick={() =>
-                                  handleDelete(
-                                    row.id
-                                  )
-                                }
-                                className="p-1.5 rounded-lg hover:bg-red-500/20 text-red-400 transition-colors"
-                                title="Hapus"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </td>}
+                          {activeSheet !== 'ANGGARAN PERBIDANG' && activeSheet !== 'KET PERS' && (
+                            <td className="px-4 py-3">
+                              <div className="flex gap-1">
+                                <button
+                                  onClick={() => openEdit(row)}
+                                  className="p-1.5 rounded-lg hover:bg-blue-500/20 text-blue-400 transition-colors"
+                                  title="Edit"
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(row.id)}
+                                  className="p-1.5 rounded-lg hover:bg-red-500/20 text-red-400 transition-colors"
+                                  title="Hapus"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          )}
                         </tr>
                       );
                     }
