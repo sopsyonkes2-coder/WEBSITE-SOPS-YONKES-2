@@ -107,6 +107,7 @@ const DEFAULT_HEADERS: Record<string, string[]> = {
     'PELAKSANAAN',
     'KOMPONEN',
     'PAGU KOMPONEN',
+    'BULAN RPD',
   ],
 
   REALISASI: [
@@ -218,6 +219,7 @@ type DetailRow = {
   PELAKSANAAN: string;
   KOMPONEN: string;
   'PAGU KOMPONEN': string;
+  'BULAN RPD'?: string;
 };
 
 type RealisasiRow = {
@@ -2188,6 +2190,10 @@ function DetailAnggaranEditor({
     Record<string, string>
   >({});
 
+  const [bulanRpd, setBulanRpd] = useState<
+    Record<string, string>
+  >({});
+
   const [saving, setSaving] = useState(false);
 
   const rows =
@@ -2232,17 +2238,18 @@ function DetailAnggaranEditor({
     const target =
       grouped[idAnggaran] || [];
 
-    const initial: Record<
-      string,
-      string
-    > = {};
+    const initialPagu: Record<string, string> = {};
+    const initialBulan: Record<string, string> = {};
 
     target.forEach((row) => {
-      initial[row['ID DETAIL']] =
+      initialPagu[row['ID DETAIL']] =
         row['PAGU KOMPONEN'] || '';
+      initialBulan[row['ID DETAIL']] =
+        (row['BULAN RPD'] || '').toUpperCase();
     });
 
-    setValues(initial);
+    setValues(initialPagu);
+    setBulanRpd(initialBulan);
   };
 
   const handleSave = async () => {
@@ -2259,6 +2266,8 @@ function DetailAnggaranEditor({
       for (const row of selectedAnggaranRows) {
         const value =
           values[row['ID DETAIL']] ?? '';
+        const bulan =
+          bulanRpd[row['ID DETAIL']] ?? '';
 
         const res = await fetch(
           '/api/admin',
@@ -2272,6 +2281,7 @@ function DetailAnggaranEditor({
                 'PAGU KOMPONEN': String(
                   toNumber(value)
                 ),
+                'BULAN RPD': bulan,
               },
             }),
           }
@@ -2288,7 +2298,7 @@ function DetailAnggaranEditor({
       }
 
       toast.success(
-        'Pagu komponen berhasil diperbarui.'
+        'Pagu komponen & Bulan RPD berhasil diperbarui.'
       );
 
       onSuccess();
@@ -2305,9 +2315,9 @@ function DetailAnggaranEditor({
 
   return (
     <ModalWrapper
-      title="Atur Pagu Komponen"
+      title="Atur Pagu Komponen & Bulan RPD"
       onClose={onClose}
-      maxWidth="max-w-4xl"
+      maxWidth="max-w-5xl"
     >
       <div className="px-6 py-5 space-y-5">
         <Field label="ID Anggaran">
@@ -2390,7 +2400,7 @@ function DetailAnggaranEditor({
             </div>
 
             <div className="rounded-xl border border-white/10 overflow-hidden">
-              <div className="grid grid-cols-[1fr_1fr_180px] gap-0 bg-slate-900 border-b border-white/10">
+              <div className="grid grid-cols-[1fr_1fr_140px_160px] gap-0 bg-slate-900 border-b border-white/10">
                 <div className="px-4 py-3 text-[10px] uppercase tracking-wider text-emerald-400 font-bold">
                   Pelaksanaan
                 </div>
@@ -2399,7 +2409,11 @@ function DetailAnggaranEditor({
                   Komponen
                 </div>
 
-                <div className="px-4 py-3 text-[10px] uppercase tracking-wider text-emerald-400 font-bold">
+                <div className="px-3 py-3 text-[10px] uppercase tracking-wider text-amber-400 font-bold">
+                  Bulan RPD
+                </div>
+
+                <div className="px-3 py-3 text-[10px] uppercase tracking-wider text-emerald-400 font-bold">
                   Pagu Komponen
                 </div>
               </div>
@@ -2411,7 +2425,7 @@ function DetailAnggaranEditor({
                       key={
                         row['ID DETAIL']
                       }
-                      className="grid grid-cols-[1fr_1fr_180px] gap-0 items-center"
+                      className="grid grid-cols-[1fr_1fr_140px_160px] gap-0 items-center"
                     >
                       <div className="px-4 py-3 text-xs text-slate-300">
                         {row.PELAKSANAAN}
@@ -2421,7 +2435,27 @@ function DetailAnggaranEditor({
                         {row.KOMPONEN}
                       </div>
 
-                      <div className="px-4 py-2">
+                      <div className="px-2 py-2">
+                        <select
+                          value={bulanRpd[row['ID DETAIL']] || ''}
+                          onChange={(e) =>
+                            setBulanRpd((prev) => ({
+                              ...prev,
+                              [row['ID DETAIL']]: e.target.value,
+                            }))
+                          }
+                          className="w-full appearance-none rounded-lg border border-white/10 bg-slate-950 px-2 py-2 text-white text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+                        >
+                          <option value="">— Bulan —</option>
+                          {BULAN_OPTIONS.map((b) => (
+                            <option key={b} value={b}>
+                              {b}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="px-2 py-2">
                         <input
                           type="text"
                           inputMode="numeric"
@@ -2468,11 +2502,9 @@ function DetailAnggaranEditor({
 
             <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 px-4 py-3">
               <p className="text-xs text-blue-300">
-                Isi PAGU KOMPONEN sesuai
-                pembagian anggaran. Setelah
-                seluruh pagu komponen selesai,
-                totalnya harus sesuai dengan
-                TOTAL PAGU kegiatan.
+                Isi <strong>PAGU KOMPONEN</strong> dan <strong>BULAN RPD</strong> (rencana penarikan dana).
+                Satu detail = satu bulan RPD. Dari sini pagu rencana per bulan / triwulan / semester dihitung otomatis.
+                Total pagu komponen harus sesuai TOTAL PAGU kegiatan.
               </p>
             </div>
           </>
@@ -2488,7 +2520,7 @@ function DetailAnggaranEditor({
           selectedAnggaranRows.length ===
             0
         }
-        label="Simpan Pagu Komponen"
+        label="Simpan Pagu & Bulan RPD"
       />
     </ModalWrapper>
   );
@@ -4560,7 +4592,7 @@ export default function AdminPage() {
                   className="bg-emerald-600 hover:bg-emerald-500 text-white"
                 >
                   <Wallet className="w-4 h-4 mr-1" />
-                  Atur Pagu Komponen
+                  Atur Pagu &amp; Bulan RPD
                 </Button>
               ) : activeSheet ===
                 'REALISASI' ? (

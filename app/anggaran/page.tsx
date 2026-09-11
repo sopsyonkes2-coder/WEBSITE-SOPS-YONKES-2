@@ -18,6 +18,9 @@ import {
   LineChart,
   Line,
   Legend,
+  AreaChart,
+  Area,
+  ComposedChart,
 } from 'recharts';
 
 import {
@@ -69,14 +72,23 @@ function normalizeQuarter(value: string, month: string) {
 }
 
 const COLORS = [
-  '#3b82f6', // biru
-  '#10b981', // hijau/teal
-  '#f59e0b', // orange
-  '#8b5cf6', // ungu
-  '#06b6d4', // cyan/teal
-  '#14b8a6', // teal
-  '#6366f1', // indigo
+  '#34d399', // emerald
+  '#fbbf24', // amber
+  '#38bdf8', // sky
+  '#a78bfa', // violet
+  '#fb7185', // rose
+  '#2dd4bf', // teal
+  '#f97316', // orange
+  '#818cf8', // indigo
 ];
+
+const CHART = {
+  rpd: '#fbbf24',
+  realisasi: '#34d399',
+  sisa: '#fb7185',
+  grid: '#1e293b',
+  axis: '#94a3b8',
+};
 
 function cleanCurrency(value: string) {
   if (!value) return 0;
@@ -178,6 +190,35 @@ export default function AnggaranPage() {
   });
 
   const {
+    data: detailMaster = [],
+  } = useQuery({
+    queryKey: ['detail-anggaran-master'],
+    queryFn: async () => {
+      const detailValues = await fetchSheetData('DETAIL ANGGARAN');
+      return valuesToObjects<any>(detailValues).map((item) => {
+        const bulanRpd = sheetField(item, 'BULAN RPD', 'Bulan RPD');
+        const komponen = sheetField(item, 'KOMPONEN', 'Komponen');
+        const kegiatan = sheetField(item, 'KEGIATAN', 'Kegiatan');
+        return {
+          ...item,
+          'ID DETAIL': sheetField(item, 'ID DETAIL'),
+          'ID ANGGARAN': sheetField(item, 'ID ANGGARAN'),
+          Tahun: sheetField(item, 'TAHUN', 'Tahun'),
+          Bidang: sheetField(item, 'BIDANG', 'Bidang'),
+          Kegiatan: kegiatan,
+          Komponen: komponen,
+          Pelaksanaan: sheetField(item, 'PELAKSANAAN', 'Pelaksanaan'),
+          'Pagu Komponen': sheetField(item, 'PAGU KOMPONEN', 'Pagu Komponen'),
+          BulanRpd: getMonthName(bulanRpd),
+          BulanRpdKe: getMonthNumber(bulanRpd),
+          PeriodeRpd: getQuarter(bulanRpd),
+          LabelKegiatan: [komponen, kegiatan].filter(Boolean).join(' ').trim() || kegiatan || '-',
+        };
+      });
+    },
+  });
+
+  const {
     data: detail = [],
   } = useQuery({
     queryKey: ['detail-anggaran'],
@@ -191,17 +232,32 @@ export default function AnggaranPage() {
         details.map((item) => [sheetField(item, 'ID DETAIL'), item])
       );
       return valuesToObjects<any>(realisasiValues).map((item) => {
-        const detail = detailById.get(sheetField(item, 'ID DETAIL')) || {};
+        const detailRow = detailById.get(sheetField(item, 'ID DETAIL')) || {};
         const bulanValue = sheetField(item, 'BULAN', 'Bulan');
+        const komponen =
+          sheetField(item, 'KOMPONEN', 'Komponen') ||
+          sheetField(detailRow, 'KOMPONEN', 'Komponen');
+        const kegiatan =
+          sheetField(item, 'KEGIATAN', 'Kegiatan') ||
+          sheetField(detailRow, 'KEGIATAN', 'Kegiatan');
+        const bulanRpd = sheetField(detailRow, 'BULAN RPD', 'Bulan RPD');
         return {
           ...item,
           Tahun: sheetField(item, 'TAHUN', 'Tahun'),
-          Bidang: sheetField(item, 'BIDANG', 'Bidang') || sheetField(detail, 'BIDANG', 'Bidang'),
-          Kegiatan: sheetField(item, 'KEGIATAN', 'Kegiatan') || sheetField(detail, 'KEGIATAN', 'Kegiatan'),
+          Bidang:
+            sheetField(item, 'BIDANG', 'Bidang') ||
+            sheetField(detailRow, 'BIDANG', 'Bidang'),
+          Kegiatan: kegiatan,
+          Komponen: komponen,
+          LabelKegiatan: [komponen, kegiatan].filter(Boolean).join(' ').trim() || kegiatan || '-',
           Bulan: getMonthName(bulanValue),
           Periode: normalizeQuarter(sheetField(item, 'PERIODE', 'Periode'), bulanValue),
           BulanKe: getMonthNumber(bulanValue),
+          BulanRpd: getMonthName(bulanRpd),
+          'Pagu Komponen': sheetField(detailRow, 'PAGU KOMPONEN', 'Pagu Komponen'),
           'Total Realisasi': sheetField(item, 'NILAI REALISASI', 'Total Realisasi'),
+          'ID DETAIL': sheetField(item, 'ID DETAIL'),
+          'ID ANGGARAN': sheetField(item, 'ID ANGGARAN'),
         };
       });
     },
@@ -307,6 +363,52 @@ const filteredDetail = useMemo(() => {
 }, [detail, tahun, bidangFilter, kegiatanFilter, bulan, triwulan, semester]);
 
 /* ====================================
+    FILTER DETAIL MASTER (RPD / PAGU RENCANA)
+==================================== */
+
+const filteredDetailMaster = useMemo(() => {
+  return detailMaster.filter((item: any) => {
+    const tahunMatch = tahun === 'Semua' || item.Tahun === tahun;
+    const bidangMatch = bidangFilter === 'Semua' || item.Bidang === bidangFilter;
+    const kegiatanMatch = kegiatanFilter === 'Semua' || item.Kegiatan === kegiatanFilter;
+
+    const bulanMatch =
+      bulan === 'Semua' ||
+      item.BulanRpd?.toLowerCase() === bulan.toLowerCase();
+
+    const quarterNumber = item.BulanRpdKe > 0 ? Math.ceil(item.BulanRpdKe / 3) : 0;
+    const triwulanMatch =
+      triwulan === 'Semua' ||
+      quarterNumber === ['TW I', 'TW II', 'TW III', 'TW IV'].indexOf(triwulan) + 1;
+
+    const semesterData =
+      item.BulanRpdKe >= 1 && item.BulanRpdKe <= 6
+        ? 'Semester I'
+        : item.BulanRpdKe >= 7 && item.BulanRpdKe <= 12
+          ? 'Semester II'
+          : '';
+
+    const semesterMatch = semester === 'Semua' || semesterData === semester;
+
+    return (
+      tahunMatch &&
+      bidangMatch &&
+      kegiatanMatch &&
+      bulanMatch &&
+      triwulanMatch &&
+      semesterMatch
+    );
+  });
+}, [detailMaster, tahun, bidangFilter, kegiatanFilter, bulan, triwulan, semester]);
+
+const totalPaguRpd = useMemo(() => {
+  return filteredDetailMaster.reduce(
+    (acc: number, item: any) => acc + cleanCurrency(item['Pagu Komponen']),
+    0
+  );
+}, [filteredDetailMaster]);
+
+/* ====================================
     DATA FILTERED PAGU (Master Kegiatan)
 ==================================== */
 
@@ -348,11 +450,12 @@ const totalRealisasi = useMemo(() => {
   );
 }, [filteredDetail]);
 
-const totalSisaFiltered = totalPaguFiltered - totalRealisasi;
+// Total pagu kegiatan memakai agregasi PAGU KOMPONEN by Bulan RPD (bukan TOTAL PAGU master)
+const totalSisaFiltered = totalPaguRpd - totalRealisasi;
 
 const persenFiltered =
-  totalPaguFiltered > 0
-    ? ((totalRealisasi / totalPaguFiltered) * 100).toFixed(2)
+  totalPaguRpd > 0
+    ? ((totalRealisasi / totalPaguRpd) * 100).toFixed(2)
     : '0';
 
 /* ====================================
@@ -437,32 +540,23 @@ const displayedPieData = pieData;
   ];
 
   const bulananData =
-    bulanUrut.map((namaBulan) => ({
-
-      bulan: namaBulan,
-
-      realisasi:
-        filteredDetail
-          .filter(
-            (item: any) =>
-              item.Bulan ===
-              namaBulan
-          )
-          .reduce(
-            (
-              sum: number,
-              item: any
-            ) =>
-              sum +
-              cleanCurrency(
-                item[
-                  'Total Realisasi'
-                ]
-              ),
-            0
-          ),
-
-    })).filter((item) => {
+    bulanUrut.map((namaBulan) => {
+      const realisasi = filteredDetail
+        .filter((item: any) => item.Bulan === namaBulan)
+        .reduce(
+          (sum: number, item: any) =>
+            sum + cleanCurrency(item['Total Realisasi']),
+          0
+        );
+      const rpd = filteredDetailMaster
+        .filter((item: any) => item.BulanRpd === namaBulan)
+        .reduce(
+          (sum: number, item: any) =>
+            sum + cleanCurrency(item['Pagu Komponen']),
+          0
+        );
+      return { bulan: namaBulan, realisasi, rpd };
+    }).filter((item) => {
       if (bulan !== 'Semua') return item.bulan === bulan;
       const monthNumber = getMonthNumber(item.bulan);
       if (semester === 'Semester I') return monthNumber <= 6;
@@ -483,31 +577,23 @@ const displayedPieData = pieData;
     'TW II',
     'TW III',
     'TW IV',
-  ].map((tw) => ({
-
-    triwulan: tw,
-
-    realisasi:
-      filteredDetail
-        .filter(
-          (item: any) =>
-            item.Periode === tw
-        )
-        .reduce(
-          (
-            sum: number,
-            item: any
-          ) =>
-            sum +
-            cleanCurrency(
-              item[
-                'Total Realisasi'
-              ]
-            ),
-          0
-        ),
-
-  })).filter((item) => {
+  ].map((tw) => {
+    const realisasi = filteredDetail
+      .filter((item: any) => item.Periode === tw)
+      .reduce(
+        (sum: number, item: any) =>
+          sum + cleanCurrency(item['Total Realisasi']),
+        0
+      );
+    const rpd = filteredDetailMaster
+      .filter((item: any) => item.PeriodeRpd === tw)
+      .reduce(
+        (sum: number, item: any) =>
+          sum + cleanCurrency(item['Pagu Komponen']),
+        0
+      );
+    return { triwulan: tw, realisasi, rpd };
+  }).filter((item) => {
     if (triwulan !== 'Semua') return item.triwulan === triwulan;
     if (semester === 'Semester I') return ['TW I', 'TW II'].includes(item.triwulan);
     if (semester === 'Semester II') return ['TW III', 'TW IV'].includes(item.triwulan);
@@ -520,67 +606,59 @@ const displayedPieData = pieData;
 
   const semesterData = [
     {
-      semester:
-        'Semester I',
-
-      realisasi:
-        filteredDetail
-          .filter(
-            (item: any) =>
-              item.Periode ===
-                'TW I' ||
-              item.Periode ===
-                'TW II'
-          )
-          .reduce(
-            (
-              sum: number,
-              item: any
-            ) =>
-              sum +
-              cleanCurrency(
-                item[
-                  'Total Realisasi'
-                ]
-              ),
-            0
-          ),
+      semester: 'Semester I',
+      realisasi: filteredDetail
+        .filter(
+          (item: any) =>
+            item.Periode === 'TW I' || item.Periode === 'TW II'
+        )
+        .reduce(
+          (sum: number, item: any) =>
+            sum + cleanCurrency(item['Total Realisasi']),
+          0
+        ),
+      rpd: filteredDetailMaster
+        .filter(
+          (item: any) =>
+            item.PeriodeRpd === 'TW I' || item.PeriodeRpd === 'TW II'
+        )
+        .reduce(
+          (sum: number, item: any) =>
+            sum + cleanCurrency(item['Pagu Komponen']),
+          0
+        ),
     },
-
     {
-      semester:
-        'Semester II',
-
-      realisasi:
-        filteredDetail
-          .filter(
-            (item: any) =>
-              item.Periode ===
-                'TW III' ||
-              item.Periode ===
-                'TW IV'
-          )
-          .reduce(
-            (
-              sum: number,
-              item: any
-            ) =>
-              sum +
-              cleanCurrency(
-                item[
-                  'Total Realisasi'
-                ]
-              ),
-            0
-          ),
+      semester: 'Semester II',
+      realisasi: filteredDetail
+        .filter(
+          (item: any) =>
+            item.Periode === 'TW III' || item.Periode === 'TW IV'
+        )
+        .reduce(
+          (sum: number, item: any) =>
+            sum + cleanCurrency(item['Total Realisasi']),
+          0
+        ),
+      rpd: filteredDetailMaster
+        .filter(
+          (item: any) =>
+            item.PeriodeRpd === 'TW III' || item.PeriodeRpd === 'TW IV'
+        )
+        .reduce(
+          (sum: number, item: any) =>
+            sum + cleanCurrency(item['Pagu Komponen']),
+          0
+        ),
     },
   ].filter((item) => {
     if (semester !== 'Semua') return item.semester === semester;
     if (triwulan === 'TW I' || triwulan === 'TW II') return item.semester === 'Semester I';
     if (triwulan === 'TW III' || triwulan === 'TW IV') return item.semester === 'Semester II';
-    if (bulan !== 'Semua') return getMonthNumber(bulan) <= 6
-      ? item.semester === 'Semester I'
-      : item.semester === 'Semester II';
+    if (bulan !== 'Semua')
+      return getMonthNumber(bulan) <= 6
+        ? item.semester === 'Semester I'
+        : item.semester === 'Semester II';
     return true;
   });
 
@@ -590,39 +668,46 @@ const displayedPieData = pieData;
   const detailTable = useMemo(() => {
     const targetYear = tahun === 'Semua' ? '' : tahun;
 
-    // Data yang sudah terealisasi (berdasarkan filter detail)
+    // Realisasi aktual (per baris realisasi)
     const realizedData = filteredDetail
       .filter((item: any) => !targetYear || item.Tahun === targetYear)
       .map((item: any) => ({
-        kegiatan: item.Kegiatan,
+        kegiatan: item.LabelKegiatan || item.Kegiatan,
+        komponen: item.Komponen || '',
         bidang: item.Bidang,
         periode: item.Periode,
+        bulanRpd: item.BulanRpd || '-',
         bulan: item.Bulan,
         tahun: item.Tahun,
+        paguRencana: cleanCurrency(item['Pagu Komponen']),
         realisasi: cleanCurrency(item['Total Realisasi']),
       }));
 
-    // Data kegiatan yang belum terealisasi di periode/filter tersebut
-    // Kita saring dari master kegiatan agar sesuai dengan konteks filter yang aktif
-    const unrealizedData = kegiatanFiltered
-      .filter((keg: any) => {
-        const hasRealizationInFilter = filteredDetail.some(
-          (item: any) => item['ID ANGGARAN'] === keg['ID ANGGARAN']
-        );
-        return !hasRealizationInFilter;
+    // Detail RPD yang belum ada realisasi di filter ini
+    const realizedDetailIds = new Set(
+      filteredDetail.map((item: any) => item['ID DETAIL']).filter(Boolean)
+    );
+    const unrealizedData = filteredDetailMaster
+      .filter((item: any) => {
+        if (targetYear && item.Tahun !== targetYear) return false;
+        return !realizedDetailIds.has(item['ID DETAIL']);
       })
       .map((item: any) => ({
-        kegiatan: item.Kegiatan,
+        kegiatan: item.LabelKegiatan || item.Kegiatan,
+        komponen: item.Komponen || '',
         bidang: item.Bidang,
-        periode: '-',
+        periode: item.PeriodeRpd || '-',
+        bulanRpd: item.BulanRpd || '-',
         bulan: '-',
         tahun: item.Tahun || currentYear,
+        paguRencana: cleanCurrency(item['Pagu Komponen']),
         realisasi: 0,
       }));
 
-    // Gabungkan dan urutkan agar yang sudah terealisasi muncul di atas
-    return [...realizedData, ...unrealizedData].sort((a, b) => b.realisasi - a.realisasi);
-  }, [filteredDetail, kegiatanFiltered, tahun, currentYear]);
+    return [...realizedData, ...unrealizedData].sort(
+      (a, b) => b.realisasi - a.realisasi || b.paguRencana - a.paguRencana
+    );
+  }, [filteredDetail, filteredDetailMaster, tahun, currentYear]);
 
   /* ====================================
       CARD SUMMARY TAMBAHAN
@@ -667,23 +752,14 @@ const displayedPieData = pieData;
   const exportRows =
     detailTable.map(
       (item) => ({
-        Kegiatan:
-          item.kegiatan,
-
-        Bidang:
-          item.bidang,
-
-        Periode:
-          item.periode,
-
-        Bulan:
-          item.bulan,
-
-        Tahun:
-          item.tahun,
-
-        Realisasi:
-          item.realisasi,
+        Kegiatan: item.kegiatan,
+        Bidang: item.bidang,
+        Periode: item.periode,
+        'Bulan RPD': item.bulanRpd,
+        'Bulan Realisasi': item.bulan,
+        Tahun: item.tahun,
+        'Pagu Rencana': item.paguRencana,
+        Realisasi: item.realisasi,
       })
     );
 
@@ -851,13 +927,14 @@ return (
           transition={{ duration: 0.4 }}
         >
           <div className="text-slate-400">
-            Total Pagu
+            Total Pagu Kegiatan
           </div>
 
           <div className="text-2xl font-bold text-emerald-400 mt-2">
-            {formatRupiah(
-              totalPaguFiltered
-            )}
+            {formatRupiah(totalPaguRpd)}
+          </div>
+          <div className="text-[11px] text-slate-500 mt-1">
+            Σ PAGU KOMPONEN by Bulan RPD
           </div>
         </motion.div>
 
@@ -872,7 +949,7 @@ return (
             Total Realisasi
           </div>
 
-          <div className="text-2xl font-bold text-blue-400 mt-2">
+          <div className="text-2xl font-bold text-sky-400 mt-2">
             {formatRupiah(
               totalRealisasi
             )}
@@ -890,7 +967,7 @@ return (
             Sisa Anggaran
           </div>
 
-          <div className="text-2xl font-bold text-amber-400 mt-2">
+          <div className="text-2xl font-bold text-rose-400 mt-2">
             {formatRupiah(
               totalSisaFiltered
             )}
@@ -908,7 +985,7 @@ return (
             Serapan
           </div>
 
-          <div className="text-2xl font-bold text-red-400 mt-2">
+          <div className="text-2xl font-bold text-violet-400 mt-2">
             {persenFiltered}%
           </div>
         </motion.div>
@@ -976,15 +1053,16 @@ return (
 
       </div>
 
-      {/* PIE + TOP 10 */}
+      {/* DONUT + TOP 10 */}
 
       <div className="grid lg:grid-cols-2 gap-8 mb-10">
 
         <div className="glass p-6 rounded-3xl">
 
-          <h2 className="text-xl font-bold mb-6">
+          <h2 className="text-xl font-bold mb-2">
             Realisasi Per Bidang
           </h2>
+          <p className="text-xs text-slate-500 mb-4">Distribusi serapan aktual per bidang</p>
 
           <ResponsiveContainer
             width="100%"
@@ -997,8 +1075,13 @@ return (
                 data={displayedPieData}
                 dataKey="value"
                 nameKey="name"
+                innerRadius={70}
                 outerRadius={120}
-                label={({ name, value }) => `${name}: ${formatRupiah(Number(value))}`}
+                paddingAngle={3}
+                cornerRadius={6}
+                label={({ name, percent }) =>
+                  `${name} ${((percent || 0) * 100).toFixed(0)}%`
+                }
               >
 
                 {displayedPieData.map(
@@ -1014,6 +1097,7 @@ return (
                             COLORS.length
                         ]
                       }
+                      stroke="transparent"
                     />
                   )
                 )}
@@ -1031,6 +1115,7 @@ return (
                   )
                 }
               />
+              <Legend verticalAlign="bottom" height={36} />
 
             </PieChart>
 
@@ -1040,9 +1125,10 @@ return (
 
         <div className="glass p-6 rounded-3xl">
 
-          <h2 className="text-xl font-bold mb-6">
+          <h2 className="text-xl font-bold mb-2">
             Top 10 Pagu Tertinggi
           </h2>
+          <p className="text-xs text-slate-500 mb-4">Kegiatan dengan alokasi pagu terbesar</p>
 
           <ResponsiveContainer
             width="100%"
@@ -1051,23 +1137,21 @@ return (
 
             <BarChart
               data={barData}
-              margin={{ top: 10, right: 20, left: 40, bottom: 100 }}
-              barCategoryGap="20%"
-              barGap={1}
+              layout="vertical"
+              margin={{ top: 10, right: 20, left: 20, bottom: 10 }}
+              barCategoryGap="18%"
             >
 
-              <CartesianGrid strokeDasharray="3 3" />
+              <CartesianGrid strokeDasharray="4 4" stroke={CHART.grid} horizontal={false} />
 
-              <XAxis
+              <XAxis type="number" tick={{ fontSize: 11, fill: CHART.axis }} />
+
+              <YAxis
+                type="category"
                 dataKey="kegiatan"
-                angle={-35}
-                textAnchor="end"
-                interval={0}
-                height={100}
-                tick={{ fontSize: 11 }}
+                width={120}
+                tick={{ fontSize: 11, fill: CHART.axis }}
               />
-
-              <YAxis />
 
               <Tooltip
                 formatter={(
@@ -1079,18 +1163,18 @@ return (
                     )
                   )
                 }
+                contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 12 }}
               />
 
               <Bar
                 dataKey="pagu"
-                fill="#10b981"
-                radius={[
-                  8,
-                  8,
-                  0,
-                  0,
-                ]}
-              />
+                fill="url(#paguGradient)"
+                radius={[0, 10, 10, 0]}
+              >
+                {barData.map((_, index) => (
+                  <Cell key={index} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Bar>
 
             </BarChart>
 
@@ -1100,67 +1184,86 @@ return (
 
       </div>
 
-      {/* BULANAN */}
+      {/* BULANAN — RPD vs Realisasi */}
 
       <div className="glass rounded-3xl p-6 mb-10">
 
-        <h2 className="text-xl font-bold mb-6">
-          Realisasi Bulanan
+        <h2 className="text-xl font-bold mb-2">
+          RPD vs Realisasi Bulanan
         </h2>
+        <p className="text-xs text-slate-500 mb-4">
+          Area = rencana penarikan (Bulan RPD) · Garis = realisasi aktual
+        </p>
 
         <ResponsiveContainer
           width="100%"
           height={chartHeight}
         >
 
-          <LineChart
+          <ComposedChart
             data={bulananData}
             margin={{ top: 24, right: 20, left: 80, bottom: 40 }}
           >
 
-            <CartesianGrid strokeDasharray="3 3" />
+            <defs>
+              <linearGradient id="rpdFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={CHART.rpd} stopOpacity={0.35} />
+                <stop offset="100%" stopColor={CHART.rpd} stopOpacity={0.02} />
+              </linearGradient>
+            </defs>
+
+            <CartesianGrid strokeDasharray="4 4" stroke={CHART.grid} />
 
             <XAxis
               dataKey="bulan"
-              tick={{ fontSize: 12 }}
+              tick={{ fontSize: 12, fill: CHART.axis }}
             />
 
-            <YAxis width={80} tick={{ fontSize: 12 }} domain={[0, 'dataMax * 1.15']} />
+            <YAxis width={80} tick={{ fontSize: 12, fill: CHART.axis }} domain={[0, 'dataMax * 1.15']} />
 
             <Tooltip
-              formatter={(
-                value
-              ) =>
-                formatRupiah(
-                  Number(
-                    value
-                  )
-                )
-              }
+              formatter={(value, name) => [
+                formatRupiah(Number(value)),
+                name === 'rpd' ? 'Pagu RPD' : 'Realisasi',
+              ]}
+              contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 12 }}
             />
 
             <Legend />
 
+            <Area
+              type="monotone"
+              dataKey="rpd"
+              name="Pagu RPD"
+              stroke={CHART.rpd}
+              fill="url(#rpdFill)"
+              strokeWidth={2}
+            />
+
             <Line
               type="monotone"
               dataKey="realisasi"
-              stroke="#3b82f6"
+              name="Realisasi"
+              stroke={CHART.realisasi}
               strokeWidth={3}
-              dot={{ r: 3 }}
+              dot={{ r: 4, fill: CHART.realisasi }}
+              activeDot={{ r: 6 }}
             />
 
-          </LineChart>
+          </ComposedChart>
 
         </ResponsiveContainer>
 
       </div>
+
       {/* TRIWULAN */}
 
       <div className="glass rounded-3xl p-6 mb-10">
 
-        <h2 className="text-xl font-bold mb-6">
-          Realisasi Per Triwulan
+        <h2 className="text-xl font-bold mb-2">
+          RPD vs Realisasi Per Triwulan
         </h2>
+        <p className="text-xs text-slate-500 mb-4">Perbandingan rencana penarikan dan penyerapan per TW</p>
 
         <ResponsiveContainer
           width="100%"
@@ -1170,38 +1273,41 @@ return (
           <BarChart
             data={triwulanData}
             margin={{ top: 24, right: 20, left: 80, bottom: 40 }}
+            barGap={6}
+            barCategoryGap="28%"
           >
 
-            <CartesianGrid strokeDasharray="3 3" />
+            <CartesianGrid strokeDasharray="4 4" stroke={CHART.grid} />
 
             <XAxis
               dataKey="triwulan"
-              tick={{ fontSize: 12 }}
+              tick={{ fontSize: 12, fill: CHART.axis }}
             />
 
-            <YAxis width={80} tick={{ fontSize: 12 }} />
+            <YAxis width={80} tick={{ fontSize: 12, fill: CHART.axis }} />
 
             <Tooltip
-              formatter={(
-                value
-              ) =>
-                formatRupiah(
-                  Number(
-                    value
-                  )
-                )
-              }
+              formatter={(value, name) => [
+                formatRupiah(Number(value)),
+                name === 'rpd' ? 'Pagu RPD' : 'Realisasi',
+              ]}
+              contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 12 }}
+            />
+
+            <Legend />
+
+            <Bar
+              dataKey="rpd"
+              name="Pagu RPD"
+              fill={CHART.rpd}
+              radius={[10, 10, 0, 0]}
             />
 
             <Bar
               dataKey="realisasi"
-              fill="#f59e0b"
-              radius={[
-                8,
-                8,
-                0,
-                0,
-              ]}
+              name="Realisasi"
+              fill={CHART.realisasi}
+              radius={[10, 10, 0, 0]}
             />
 
           </BarChart>
@@ -1214,9 +1320,10 @@ return (
 
       <div className="glass rounded-3xl p-6 mb-10">
 
-        <h2 className="text-xl font-bold mb-6">
-          Realisasi Per Semester
+        <h2 className="text-xl font-bold mb-2">
+          RPD vs Realisasi Per Semester
         </h2>
+        <p className="text-xs text-slate-500 mb-4">Agregasi rencana vs realisasi semester I &amp; II</p>
 
         <ResponsiveContainer
           width="100%"
@@ -1226,38 +1333,41 @@ return (
           <BarChart
             data={semesterData}
             margin={{ top: 24, right: 20, left: 80, bottom: 40 }}
+            barGap={8}
+            barCategoryGap="35%"
           >
 
-            <CartesianGrid strokeDasharray="3 3" />
+            <CartesianGrid strokeDasharray="4 4" stroke={CHART.grid} />
 
             <XAxis
               dataKey="semester"
-              tick={{ fontSize: 12 }}
+              tick={{ fontSize: 12, fill: CHART.axis }}
             />
 
-            <YAxis width={80} tick={{ fontSize: 12 }} />
+            <YAxis width={80} tick={{ fontSize: 12, fill: CHART.axis }} />
 
             <Tooltip
-              formatter={(
-                value
-              ) =>
-                formatRupiah(
-                  Number(
-                    value
-                  )
-                )
-              }
+              formatter={(value, name) => [
+                formatRupiah(Number(value)),
+                name === 'rpd' ? 'Pagu RPD' : 'Realisasi',
+              ]}
+              contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 12 }}
+            />
+
+            <Legend />
+
+            <Bar
+              dataKey="rpd"
+              name="Pagu RPD"
+              fill={CHART.rpd}
+              radius={[12, 12, 0, 0]}
             />
 
             <Bar
               dataKey="realisasi"
-              fill="#8b5cf6"
-              radius={[
-                8,
-                8,
-                0,
-                0,
-              ]}
+              name="Realisasi"
+              fill={CHART.realisasi}
+              radius={[12, 12, 0, 0]}
             />
 
           </BarChart>
@@ -1284,21 +1394,25 @@ return (
 
         <div className="overflow-auto">
 
-          <table className="w-full min-w-[900px]">
+          <table className="w-full min-w-[1100px]">
 
             <thead>
 
               <tr className="border-b border-slate-700 bg-slate-900/50">
 
-                <th className="p-3 text-left">Kegiatan</th>
+                <th className="p-3 text-left">Kegiatan (Komponen + Nama)</th>
 
                 <th className="p-3 text-left">Bidang</th>
 
                 <th className="p-3 text-left">Periode</th>
 
-                <th className="p-3 text-left">Bulan</th>
+                <th className="p-3 text-left">Bulan RPD</th>
+
+                <th className="p-3 text-left">Bulan Realisasi</th>
 
                 <th className="p-3 text-left">Tahun</th>
+
+                <th className="p-3 text-right">Pagu Rencana</th>
 
                 <th className="p-3 text-right">Realisasi</th>
 
@@ -1315,15 +1429,21 @@ return (
                   className="border-b border-slate-800 hover:bg-slate-800/40"
                 >
 
-                  <td className="p-3">{item.kegiatan}</td>
+                  <td className="p-3 font-medium text-slate-100">{item.kegiatan}</td>
 
                   <td className="p-3">{item.bidang}</td>
 
                   <td className="p-3">{item.periode}</td>
 
+                  <td className="p-3 text-amber-300">{item.bulanRpd}</td>
+
                   <td className="p-3">{item.bulan}</td>
 
                   <td className="p-3">{item.tahun}</td>
+
+                  <td className="p-3 text-right text-amber-400/90">
+                    {formatRupiah(item.paguRencana)}
+                  </td>
 
                   <td className={`p-3 text-right font-semibold ${item.realisasi > 0 ? 'text-emerald-400' : 'text-slate-500'}`}>
                     {formatRupiah(item.realisasi)}
@@ -1337,7 +1457,7 @@ return (
 
                 <tr>
 
-                  <td colSpan={6} className="p-6 text-center text-slate-400">
+                  <td colSpan={8} className="p-6 text-center text-slate-400">
 
                     Tidak ada data ditemukan
 
